@@ -1,13 +1,11 @@
-import { RunTests } from '../../domain/test/RunTests';
-import { TestResult } from '../../domain/test/TestResult';
-import { TerminalRepository } from '../../domain/terminal/TerminalRepository';
+import { TestRunnerPort } from '../../domain/model/TestRunnerPort';
+import { TerminalViewProvider } from '../../presentation/terminal/TerminalViewProvider';
 
-export class NpmRunTests implements RunTests {
-  constructor(private readonly terminal: TerminalRepository) {}
+export class NpmRunTests implements TestRunnerPort {
+  constructor(private readonly terminalProvider: TerminalViewProvider) {}
 
-  async execute(): Promise<TestResult[]> {
-    const output = await this.terminal.runCommand("npm test");
-    // TODO: parsear resultados reales desde el output
-    return [{ name: "dummy test", success: true, duration: 50 }];
+  async runTests(): Promise<string[]> {
+    this.terminalProvider.sendToTerminal('🚀 Ejecutando: npm run test');
+    return ['npm run test ejecutado en TDDLab'];
   }
 }

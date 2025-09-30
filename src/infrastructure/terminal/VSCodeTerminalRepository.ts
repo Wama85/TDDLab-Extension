@@ -1,15 +1,18 @@
 import * as vscode from 'vscode';
+import { TerminalPort } from '../../domain/model/TerminalPort';
+export class VSCodeTerminalRepository implements TerminalPort {
+  private getTerminalByName(name: string): vscode.Terminal | undefined {
+    return vscode.window.terminals.find(terminal => terminal.name === name);
+  }
 
-import { TerminalRepository } from '../../domain/terminal/TerminalRepository';
+  createAndExecuteCommand(terminalName: string, command: string): void {
+    let terminal = this.getTerminalByName(terminalName);
 
-export class VSCodeTerminalRepository implements TerminalRepository {
-  async runCommand(command: string): Promise<string> {
-    const terminal = vscode.window.createTerminal("TDDLab");
+    if (!terminal) {
+      terminal = vscode.window.createTerminal(terminalName);
+    }
+
     terminal.show();
     terminal.sendText(command);
-    return new Promise(resolve => {
-      // Por ahora solo simula que se ejecuta el comando
-      resolve(`Executed: ${command}`);
-    });
   }
 }

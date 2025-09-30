@@ -2,12 +2,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExecuteTestCommand = void 0;
 class ExecuteTestCommand {
-    runTests;
-    constructor(runTests) {
-        this.runTests = runTests;
+    testRunner;
+    constructor(testRunner) {
+        this.testRunner = testRunner;
     }
     async execute() {
-        return await this.runTests.execute();
+        return await this.testRunner.runTests();
     }
 }
 exports.ExecuteTestCommand = ExecuteTestCommand;

@@ -2,14 +2,13 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NpmRunTests = void 0;
 class NpmRunTests {
-    terminal;
-    constructor(terminal) {
-        this.terminal = terminal;
+    terminalProvider;
+    constructor(terminalProvider) {
+        this.terminalProvider = terminalProvider;
     }
-    async execute() {
-        const output = await this.terminal.runCommand("npm test");
-        // TODO: parsear resultados reales desde el output
-        return [{ name: "dummy test", success: true, duration: 50 }];
+    async runTests() {
+        this.terminalProvider.sendToTerminal('🚀 Ejecutando: npm run test');
+        return ['npm run test ejecutado en TDDLab'];
     }
 }
 exports.NpmRunTests = NpmRunTests;

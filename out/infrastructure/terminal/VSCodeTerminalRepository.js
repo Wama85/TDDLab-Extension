@@ -36,14 +36,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.VSCodeTerminalRepository = void 0;
 const vscode = __importStar(require("vscode"));
 class VSCodeTerminalRepository {
-    async runCommand(command) {
-        const terminal = vscode.window.createTerminal("TDDLab");
+    getTerminalByName(name) {
+        return vscode.window.terminals.find(terminal => terminal.name === name);
+    }
+    createAndExecuteCommand(terminalName, command) {
+        let terminal = this.getTerminalByName(terminalName);
+        if (!terminal) {
+            terminal = vscode.window.createTerminal(terminalName);
+        }
         terminal.show();
         terminal.sendText(command);
-        return new Promise(resolve => {
-            // Por ahora solo simula que se ejecuta el comando
-            resolve(`Executed: ${command}`);
-        });
     }
 }
 exports.VSCodeTerminalRepository = VSCodeTerminalRepository;

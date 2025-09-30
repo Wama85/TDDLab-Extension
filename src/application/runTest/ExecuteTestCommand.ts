@@ -1,10 +1,9 @@
-import { RunTests } from '../../domain/test/RunTests';
-import { TestResult } from '../../domain/test/TestResult';
+import { TestRunnerPort } from '../../domain/model/TestRunnerPort';
 
 export class ExecuteTestCommand {
-  constructor(private readonly runTests: RunTests) {}
+  constructor(private readonly testRunner: TestRunnerPort) {}
 
-  async execute(): Promise<TestResult[]> {
-    return await this.runTests.execute();
+  async execute(): Promise<string[]> {
+    return await this.testRunner.runTests();
   }
 }

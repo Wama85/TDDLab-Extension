@@ -44,17 +44,14 @@ class TimelineView {
     currentWebview = null;
     getTimeline;
     getLastPoint;
-    // EventEmitter para notificar cambios en el timeline
     static _onTimelineUpdated = new vscode.EventEmitter();
     static onTimelineUpdated = TimelineView._onTimelineUpdated.event;
-    // Cache del timeline para detectar cambios
     lastTimelineData = [];
     constructor(context) {
         this.context = context;
         const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
         this.getTimeline = new GetTimeline_1.GetTimeline(rootPath);
         this.getLastPoint = new GetLastPoint_1.GetLastPoint(context);
-        // Iniciar el polling para detectar cambios
         this.startTimelinePolling();
     }
     resolveWebviewView(webviewView) {
@@ -66,16 +63,12 @@ class TimelineView {
         try {
             const timeline = await this.getTimeline.execute();
             webview.html = this.generateHtml(timeline, webview);
-            // Actualizar cache y notificar si hay cambios
             this.updateTimelineCache(timeline);
         }
         catch (err) {
-            if (err instanceof Error) {
-                vscode.window.showErrorMessage(`Error al mostrar la línea de tiempo: ${err.message}`);
-            }
-            else {
-                vscode.window.showErrorMessage(`Error desconocido al mostrar la línea de tiempo`);
-            }
+            webview.html = `<h2>TDDLab Timeline</h2>
+                      <p style="color:gray;">⚠️ Timeline no disponible aún</p>`;
+            console.warn('[TimelineView] Error inicial (ignorado):', err);
         }
     }
     async getTimelineHtml(webview) {
@@ -84,154 +77,96 @@ class TimelineView {
             return this.generateHtmlFragment(timeline, webview);
         }
         catch (err) {
-            if (err instanceof Error) {
-                vscode.window.showErrorMessage(`Error al cargar la línea de tiempo: ${err.message}`);
-                console.error('[TimelineView] getTimelineHtml error:', err);
-            }
-            else {
-                vscode.window.showErrorMessage(`Error desconocido al cargar la línea de tiempo.`);
-                console.error('[TimelineView] getTimelineHtml unknown error:', err);
-            }
-            return `<p style="color: red;">Error al cargar la línea de tiempo</p>`;
+            console.warn('[TimelineView] getTimelineHtml error (ignorado):', err);
+            return `<p style="color:gray;">⚠️ No se pudo refrescar el timeline</p>`;
         }
     }
     startTimelinePolling() {
         setInterval(async () => {
             try {
                 const currentTimeline = await this.getTimeline.execute();
-                // Verificar si hay cambios comparando con el cache
                 if (this.hasTimelineChanged(currentTimeline)) {
                     this.updateTimelineCache(currentTimeline);
-                    // Actualizar el webview principal si existe
                     if (this.currentWebview) {
-                        this.currentWebview.html = this.generateHtml(currentTimeline, this.currentWebview);
+                        this.currentWebview.postMessage({
+                            command: 'updateTimeline',
+                            html: this.generateHtmlFragment(currentTimeline, this.currentWebview),
+                        });
                     }
                 }
             }
             catch (err) {
-                console.error('[TimelineView] Error en polling:', err);
+                // 👇 no mostrar popup, solo aviso en consola
+                console.warn('[TimelineView] Polling error (ignorado):', err);
             }
-        }, 2000); // Verificar cada 2 segundos
+        }, 4000);
     }
-    // Método para verificar si el timeline ha cambiado
     hasTimelineChanged(newTimeline) {
-        if (newTimeline.length !== this.lastTimelineData.length) {
-            return true;
-        }
-        // Comparación simple por longitud y últimos elementos
-        for (let i = 0; i < newTimeline.length; i++) {
-            const newItem = newTimeline[i];
-            const oldItem = this.lastTimelineData[i];
-            if (newItem instanceof Timeline_1.Timeline && oldItem instanceof Timeline_1.Timeline) {
-                if (newItem.numPassedTests !== oldItem.numPassedTests ||
-                    newItem.numTotalTests !== oldItem.numTotalTests ||
-                    newItem.timestamp.getTime() !== oldItem.timestamp.getTime()) {
-                    return true;
-                }
-            }
-            else if (newItem instanceof CommitPoint_1.CommitPoint && oldItem instanceof CommitPoint_1.CommitPoint) {
-                if (newItem.commitName !== oldItem.commitName ||
-                    newItem.commitTimestamp.getTime() !== oldItem.commitTimestamp.getTime()) {
-                    return true;
-                }
-            }
-            else if (newItem.constructor !== oldItem.constructor) {
-                return true;
-            }
-        }
-        return false;
+        return JSON.stringify(newTimeline) !== JSON.stringify(this.lastTimelineData);
     }
-    // Método para actualizar el cache y notificar cambios
     updateTimelineCache(timeline) {
-        this.lastTimelineData = [...timeline]; // Crear copia del array
-        // Emitir evento de actualización
+        this.lastTimelineData = [...timeline];
         TimelineView._onTimelineUpdated.fire(timeline);
-    }
-    lastTestPoint(timeline) {
-        for (let i = timeline.length - 1; i >= 0; i--) {
-            if (timeline[i] instanceof Timeline_1.Timeline && timeline[i] !== undefined) {
-                return timeline[i];
-            }
-        }
-        return undefined;
     }
     generateHtmlFragment(timeline, webview) {
         const gitLogoUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'images', 'git.png'));
         const regex = /refactor/i;
-        return timeline.slice().reverse().map(point => {
+        return timeline
+            .slice()
+            .reverse()
+            .map((point) => {
             if (point instanceof Timeline_1.Timeline) {
                 const color = point.getColor();
-                const date = point.timestamp.toLocaleDateString('es-Es', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric'
-                });
-                const time = point.timestamp.toLocaleTimeString();
-                return `
-                    <div class="timeline-dot" style="margin: 3px; background-color: ${color}; width: 25px; height: 25px; border-radius: 50px;">
-                        <span class="popup">
-                            <strong>Pruebas:</strong> ${point.numPassedTests}/${point.numTotalTests}<br>
-                            <strong>Fecha:</strong> ${date}<br>
-                            <strong>Hora:</strong> ${time}
-                        </span>
-                    </div>
-                `;
+                return `<div class="timeline-dot" style="margin:3px;background:${color};width:20px;height:20px;border-radius:50%;"></div>`;
             }
             else if (point instanceof CommitPoint_1.CommitPoint) {
-                let htmlPoint = '';
-                const date = point.commitTimestamp.toLocaleDateString('es-Es', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric'
-                });
-                const time = point.commitTimestamp.toLocaleTimeString();
-                htmlPoint += `
-                    <div class="timeline-dot">
-                        <img src="${gitLogoUri}" style="margin: 3px; width: 25px; height: 25px; border-radius: 50px;">
-                        <span class="popup">
-                            <strong>Nombre:</strong> ${point.commitName ?? ''}<br>
-                            <strong>Fecha:</strong> ${date} ${time}
-                        </span>
-                    </div>
-                `;
+                let htmlPoint = `
+            <div class="timeline-dot">
+              <img src="${gitLogoUri}" style="margin:3px;width:20px;height:20px;border-radius:50%;">
+            </div>
+          `;
                 if (point.commitName && regex.test(point.commitName)) {
-                    htmlPoint += `
-                        <div class="timeline-dot" style="margin: 3px; background-color: skyblue; width: 25px; height: 25px; border-radius: 50px;">
-                            <span class="popup">
-                                <center><strong>Punto de Refactoring</strong></center>
-                            </span>
-                        </div>
-                    `;
+                    htmlPoint += `<div class="timeline-dot" style="margin:3px;background:skyblue;width:20px;height:20px;border-radius:50%;"></div>`;
                 }
                 return htmlPoint;
             }
             return '';
-        }).join('');
+        })
+            .join('');
     }
     generateHtml(timeline, webview) {
-        const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'media', 'style.css'));
         const timelineHtml = this.generateHtmlFragment(timeline, webview);
-        const lastPoint = this.lastTestPoint(timeline);
-        if (lastPoint !== undefined) {
-            this.getLastPoint.execute(lastPoint.getColor());
-        }
         return `
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Línea de Tiempo</title>
-                <link href="${styleUri}" rel="stylesheet">
-            </head>
-            <body>
-                <h2>TDDLab Timeline</h2>
-                <div style="display: flex; flex-wrap: wrap;">
-                    ${timelineHtml}
-                </div>
-            </body>
-            </html>
-        `;
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { background:#1e1e1e; color:#eee; font-family:monospace; }
+          .timeline-dot { display:inline-block; }
+          #timeline-content { 
+            display:flex;
+            flex-direction:row;
+            flex-wrap:wrap;
+            align-items:center;
+          }
+        </style>
+      </head>
+      <body>
+        <h2>TDDLab Timeline</h2>
+        <div id="timeline-content">
+          ${timelineHtml}
+        </div>
+        <script>
+          window.addEventListener('message', event => {
+            if (event.data.command === 'updateTimeline') {
+              document.getElementById('timeline-content').innerHTML = event.data.html;
+            }
+          });
+        </script>
+      </body>
+      </html>
+    `;
     }
 }
 exports.TimelineView = TimelineView;

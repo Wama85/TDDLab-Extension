@@ -3,7 +3,7 @@
   "displayName": "TDD Lab",
   "description": "Plugin de VSCode para la aplicación TDDLab",
   "publisher": "TDDLab-TallerDesarrollo",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -27,7 +27,8 @@
     "commands": [
       {
         "command": "TDD.runTest",
-        "title": "Run Test"
+        "title": "Run Test",
+        "icon": "$(play)"
       },
       {
         "command": "TDD.runTestActivity",
@@ -86,11 +87,17 @@
       ]
     },
     "menus": {
-      "editor/title": [
+      "view/title": [
         {
-          "command": "TDD.runTestActivity",
+          "command": "TDD.runTest",
+          "when": "view == tddTestExecution",
           "group": "navigation"
-        }
+        },
+         {
+      "command": "TDD.runTest",
+      "when": "view == tddTerminalView",
+      "group": "navigation"
+    }
       ]
     }
   },
