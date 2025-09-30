@@ -47,20 +47,32 @@ async function activate(context) {
     timelineView = new TimelineView_1.TimelineView(context);
     // 🔹 Crear TerminalViewProvider con TimelineView
     terminalProvider = new TerminalViewProvider_1.TerminalViewProvider(context, timelineView);
+    // 🔹 Crear instancias para ejecutar tests
     const runTests = new NpmRunTests_1.NpmRunTests(terminalProvider);
     const executeTestCommand = new ExecuteTestCommand_1.ExecuteTestCommand(runTests);
     // 🔹 Botón/Comando Run Test
     const runTestCmd = vscode.commands.registerCommand('TDD.runTest', async () => {
         try {
+            if (!terminalProvider) {
+                vscode.window.showErrorMessage('Terminal no disponible');
+                return;
+            }
             // 🔹 Primero abrimos/mostramos la terminal TDD
             await vscode.commands.executeCommand('tddTerminalView.focus');
-            // 🔹 Luego ejecutamos los tests
-            const results = await executeTestCommand.execute();
-            terminalProvider?.sendToTerminal(`✅ Tests ejecutados: ${results.join(', ')}`);
+            // 🔹 Mostrar el comando en la terminal con línea en blanco
+            terminalProvider.sendToTerminal('$ npm run test');
+            terminalProvider.sendToTerminal('');
+            // 🔹 Ejecutar los tests (esto enviará la salida a la terminal)
+            await executeTestCommand.execute();
         }
         catch (error) {
             const msg = `❌ Error ejecutando tests: ${error.message}`;
-            terminalProvider?.sendToTerminal(msg);
+            if (terminalProvider) {
+                terminalProvider.sendToTerminal(msg);
+            }
+            else {
+                vscode.window.showErrorMessage(msg);
+            }
         }
     });
     context.subscriptions.push(runTestCmd);
