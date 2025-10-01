@@ -22,15 +22,15 @@ export class NpmRunTests implements TestRunnerPort {
     const cwd = workspaceFolder.uri.fsPath;
 
     try {
-      // Ejecutar el comando npm test
+     
       const { stdout, stderr } = await execPromise('npm run test', {
         cwd,
-        maxBuffer: 1024 * 1024 * 10, // 10MB buffer
+        maxBuffer: 1024 * 1024 * 10, 
       });
 
-      // Enviar toda la salida a la terminal
+     
       if (stdout) {
-        // Dividir por líneas y enviar cada línea
+        
         const lines = stdout.split('\n');
         lines.forEach(line => {
           this.terminalProvider.sendToTerminal(line);
@@ -42,12 +42,12 @@ export class NpmRunTests implements TestRunnerPort {
         this.terminalProvider.sendToTerminal(stderr);
       }
 
-      // Parsear resultados para retornar
+     
       const testResults = this.parseTestResults(stdout);
       return testResults;
 
     } catch (error: any) {
-      // Si hay error, también mostramos la salida
+      
       if (error.stdout) {
         this.terminalProvider.sendToTerminal(error.stdout);
       }
@@ -59,7 +59,7 @@ export class NpmRunTests implements TestRunnerPort {
     }
   }
 
-  // Mantener el método execute() por compatibilidad si se usa en otros lugares
+ 
   async execute(): Promise<string[]> {
     return this.runTests();
   }
@@ -67,7 +67,7 @@ export class NpmRunTests implements TestRunnerPort {
   private parseTestResults(output: string): string[] {
     const results: string[] = [];
     
-    // Buscar líneas con "PASS" o "FAIL"
+ 
     const lines = output.split('\n');
     lines.forEach(line => {
       if (line.includes('PASS') || line.includes('FAIL')) {
@@ -75,7 +75,7 @@ export class NpmRunTests implements TestRunnerPort {
       }
     });
 
-    // Si no encontramos resultados específicos, retornar un resumen
+    
     if (results.length === 0) {
       const summaryMatch = output.match(/Tests:\s+(\d+\s+\w+)/);
       if (summaryMatch) {

@@ -53,7 +53,7 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
  
   public sendToTerminal(message: string) {
     if (this.webviewView) {
-      // No agregar \r\n si el mensaje ya lo tiene al final
+     
       const text = message.endsWith('\r\n') ? message.slice(0, -2) : message;
       this.webviewView.webview.postMessage({
         command: 'writeToTerminal',

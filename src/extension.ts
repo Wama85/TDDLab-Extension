@@ -10,20 +10,20 @@ let timelineView: TimelineView | null = null;
 let testMenuProvider: TestMenuProvider | null = null;
 
 export async function activate(context: vscode.ExtensionContext) {
-  // 🔹 Crear TimelineView primero
+  //  Crear TimelineView primero
   timelineView = new TimelineView(context);
   
-  // 🔹 Crear TerminalViewProvider con TimelineView
+  //  Crear TerminalViewProvider con TimelineView
   terminalProvider = new TerminalViewProvider(context, timelineView);
   
-  // 🔹 Crear el menú de opciones TDD
+  //  Crear el menú de opciones TDD
   testMenuProvider = new TestMenuProvider();
   
-  // 🔹 Crear instancias para ejecutar tests
+  //  Crear instancias para ejecutar tests
   const runTests = new NpmRunTests(terminalProvider);
   const executeTestCommand = new ExecuteTestCommand(runTests);
 
-  // 🔹 Botón/Comando Run Test
+  //  Botón/Comando Run Test
   const runTestCmd = vscode.commands.registerCommand('TDD.runTest', async () => {
     try {
       if (!terminalProvider) {
@@ -31,14 +31,14 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      // 🔹 Primero abrimos/mostramos la terminal TDD
+      //  Primero abrimos/mostramos la terminal TDD
       await vscode.commands.executeCommand('tddTerminalView.focus');
       
-      // 🔹 Mostrar el comando en la terminal con línea en blanco
+      //  Mostrar el comando en la terminal con línea en blanco
       terminalProvider.sendToTerminal('$ npm run test');
       terminalProvider.sendToTerminal('');
       
-      // 🔹 Ejecutar los tests (esto enviará la salida a la terminal)
+      //  Ejecutar los tests (esto enviará la salida a la terminal)
       await executeTestCommand.execute();
       
     } catch (error: any) {
@@ -51,7 +51,7 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 🔹 Comando Clear Terminal
+  //  Comando Clear Terminal
   const clearTerminalCmd = vscode.commands.registerCommand('TDD.clearTerminal', () => {
     if (terminalProvider) {
       terminalProvider.clearTerminal();
@@ -60,7 +60,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(runTestCmd, clearTerminalCmd);
 
-  // 🔹 Registrar el menú de opciones TDD
+  //  Registrar el menú de opciones TDD
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider(
       'tddTestExecution',
@@ -68,7 +68,7 @@ export async function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  // 🔹 Registrar Terminal TDDLab
+  //  Registrar Terminal TDDLab
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       TerminalViewProvider.viewType,
@@ -76,7 +76,7 @@ export async function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  // 🔹 Registrar TimelineView (si quieres que también esté disponible como vista separada)
+  // Registrar TimelineView (si quieres que también esté disponible como vista separada)
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       'tddTimelineView',
