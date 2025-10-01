@@ -50,14 +50,11 @@ class NpmRunTests {
         }
         const cwd = workspaceFolder.uri.fsPath;
         try {
-            // Ejecutar el comando npm test
             const { stdout, stderr } = await execPromise('npm run test', {
                 cwd,
-                maxBuffer: 1024 * 1024 * 10, // 10MB buffer
+                maxBuffer: 1024 * 1024 * 10,
             });
-            // Enviar toda la salida a la terminal
             if (stdout) {
-                // Dividir por líneas y enviar cada línea
                 const lines = stdout.split('\n');
                 lines.forEach(line => {
                     this.terminalProvider.sendToTerminal(line);
@@ -67,12 +64,10 @@ class NpmRunTests {
                 this.terminalProvider.sendToTerminal('⚠️ Warnings:');
                 this.terminalProvider.sendToTerminal(stderr);
             }
-            // Parsear resultados para retornar
             const testResults = this.parseTestResults(stdout);
             return testResults;
         }
         catch (error) {
-            // Si hay error, también mostramos la salida
             if (error.stdout) {
                 this.terminalProvider.sendToTerminal(error.stdout);
             }
@@ -83,20 +78,17 @@ class NpmRunTests {
             throw error;
         }
     }
-    // Mantener el método execute() por compatibilidad si se usa en otros lugares
     async execute() {
         return this.runTests();
     }
     parseTestResults(output) {
         const results = [];
-        // Buscar líneas con "PASS" o "FAIL"
         const lines = output.split('\n');
         lines.forEach(line => {
             if (line.includes('PASS') || line.includes('FAIL')) {
                 results.push(line.trim());
             }
         });
-        // Si no encontramos resultados específicos, retornar un resumen
         if (results.length === 0) {
             const summaryMatch = output.match(/Tests:\s+(\d+\s+\w+)/);
             if (summaryMatch) {

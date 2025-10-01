@@ -40,62 +40,53 @@ const ExecuteTestCommand_1 = require("./application/runTest/ExecuteTestCommand")
 const NpmRunTests_1 = require("./infrastructure/test/NpmRunTests");
 const TerminalViewProvider_1 = require("./presentation/terminal/TerminalViewProvider");
 const TimelineView_1 = require("./presentation/timeline/TimelineView");
-const TestMenuProvider_1 = require("./presentation/menu/TestMenuProvider");
+const RealCommandExecutor_1 = require("./infrastructure/terminal/RealCommandExecutor");
 let terminalProvider = null;
 let timelineView = null;
-let testMenuProvider = null;
 async function activate(context) {
-    // 🔹 Crear TimelineView primero
-    timelineView = new TimelineView_1.TimelineView(context);
-    // 🔹 Crear TerminalViewProvider con TimelineView
-    terminalProvider = new TerminalViewProvider_1.TerminalViewProvider(context, timelineView);
-    // 🔹 Crear el menú de opciones TDD
-    testMenuProvider = new TestMenuProvider_1.TestMenuProvider();
-    // 🔹 Crear instancias para ejecutar tests
-    const runTests = new NpmRunTests_1.NpmRunTests(terminalProvider);
-    const executeTestCommand = new ExecuteTestCommand_1.ExecuteTestCommand(runTests);
-    // 🔹 Botón/Comando Run Test
-    const runTestCmd = vscode.commands.registerCommand('TDD.runTest', async () => {
-        try {
-            if (!terminalProvider) {
-                vscode.window.showErrorMessage('Terminal no disponible');
-                return;
-            }
-            // 🔹 Primero abrimos/mostramos la terminal TDD
-            await vscode.commands.executeCommand('tddTerminalView.focus');
-            // 🔹 Mostrar el comando en la terminal con línea en blanco
-            terminalProvider.sendToTerminal('$ npm run test');
-            terminalProvider.sendToTerminal('');
-            // 🔹 Ejecutar los tests (esto enviará la salida a la terminal)
-            await executeTestCommand.execute();
-        }
-        catch (error) {
-            const msg = `❌ Error ejecutando tests: ${error.message}`;
+    console.log('TDDLab extension is activating...');
+    try {
+        // 🔹 Crear TimelineView primero
+        timelineView = new TimelineView_1.TimelineView(context);
+        // 🔹 Crear el ejecutor de comandos REALES (ÚNICA IMPLEMENTACIÓN)
+        const terminalPort = new RealCommandExecutor_1.RealCommandExecutor();
+        // 🔹 Crear TerminalViewProvider
+        terminalProvider = new TerminalViewProvider_1.TerminalViewProvider(context, timelineView, terminalPort);
+        // 🔹 Crear instancias para ejecutar tests
+        const runTests = new NpmRunTests_1.NpmRunTests(terminalProvider);
+        const _executeTestCommand = new ExecuteTestCommand_1.ExecuteTestCommand(runTests);
+        // 🔹 Comandos
+        const runTestCmd = vscode.commands.registerCommand('TDD.runTest', async () => {
             if (terminalProvider) {
-                terminalProvider.sendToTerminal(msg);
+                await vscode.commands.executeCommand('tddTerminalView.focus');
+                terminalProvider.sendToTerminal('npm run test\r\n');
             }
-            else {
-                vscode.window.showErrorMessage(msg);
+        });
+        const openTerminalCmd = vscode.commands.registerCommand('TDD.openTerminal', () => {
+            vscode.commands.executeCommand('tddTerminalView.focus');
+        });
+        const runCypressCmd = vscode.commands.registerCommand('TDD.runCypress', () => {
+            if (terminalProvider) {
+                vscode.commands.executeCommand('tddTerminalView.focus');
+                terminalProvider.sendToTerminal('npx cypress run\r\n');
             }
-        }
-    });
-    // 🔹 Comando Clear Terminal
-    const clearTerminalCmd = vscode.commands.registerCommand('TDD.clearTerminal', () => {
-        if (terminalProvider) {
-            terminalProvider.clearTerminal();
-        }
-    });
-    context.subscriptions.push(runTestCmd, clearTerminalCmd);
-    // 🔹 Registrar el menú de opciones TDD
-    context.subscriptions.push(vscode.window.registerTreeDataProvider('tddTestExecution', testMenuProvider));
-    // 🔹 Registrar Terminal TDDLab
-    context.subscriptions.push(vscode.window.registerWebviewViewProvider(TerminalViewProvider_1.TerminalViewProvider.viewType, terminalProvider));
-    // 🔹 Registrar TimelineView (si quieres que también esté disponible como vista separada)
-    context.subscriptions.push(vscode.window.registerWebviewViewProvider('tddTimelineView', timelineView));
+        });
+        context.subscriptions.push(runTestCmd, openTerminalCmd, runCypressCmd);
+        // 🔹 Registrar vistas
+        context.subscriptions.push(vscode.window.registerWebviewViewProvider(TerminalViewProvider_1.TerminalViewProvider.viewType, terminalProvider));
+        context.subscriptions.push(vscode.window.registerWebviewViewProvider('tddTimelineView', timelineView));
+        console.log('TDDLab extension activated ✅');
+    }
+    catch (error) {
+        console.error('Error activating TDDLab extension:', error);
+        vscode.window.showErrorMessage(`Error activating TDDLab: ${error}`);
+    }
 }
 function deactivate() {
+    if (terminalProvider) {
+        terminalProvider.dispose();
+    }
     terminalProvider = null;
     timelineView = null;
-    testMenuProvider = null;
 }
 //# sourceMappingURL=extension.js.map

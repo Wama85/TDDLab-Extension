@@ -31,11 +31,6 @@
         "icon": "$(play)"
       },
       {
-        "command": "TDD.clearTerminal",
-        "title": "Clear Terminal",
-        "icon": "$(clear-all)"
-      },
-      {
         "command": "TDD.runTestActivity",
         "title": "TDD Lab Test"
       },
@@ -57,7 +52,7 @@
       },
       {
         "command": "TDD.openTerminal",
-        "title": "Abrir Terminal Simulada"
+        "title": "Abrir Terminal TDDLab"
       }
     ],
     "viewsContainers": {
@@ -86,7 +81,7 @@
       "tddTerminalPanel": [
         {
           "id": "tddTerminalView",
-          "name": "Terminal Simulada",
+          "name": "Terminal TDDLab",
           "type": "webview"
         }
       ]
@@ -96,6 +91,11 @@
         {
           "command": "TDD.runTest",
           "when": "view == tddTestExecution",
+          "group": "navigation"
+        },
+        {
+          "command": "TDD.runTest",
+          "when": "view == tddTerminalView",
           "group": "navigation"
         }
       ]
@@ -115,7 +115,6 @@
     "@types/mocha": "^10.0.7",
     "@types/node": "20.x",
     "@types/vscode": "^1.100.0",
-    "@types/xterm": "^3.0.0",
     "@typescript-eslint/eslint-plugin": "^8.3.0",
     "@typescript-eslint/parser": "^8.3.0",
     "@vscode/test-cli": "^0.0.10",
@@ -128,7 +127,6 @@
     "crypto-js": "^4.2.0",
     "dotenv": "^16.4.5",
     "node-fetch": "^3.3.2",
-    "simple-git": "^3.27.0",
-    "xterm": "^5.3.0"
+    "simple-git": "^3.27.0"
   }
 }

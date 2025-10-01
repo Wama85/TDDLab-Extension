@@ -88,7 +88,6 @@ class TimelineView {
         setInterval(async () => {
             try {
                 const currentTimeline = await this.getTimeline.execute();
-                // Resetear contador de errores si fue exitoso
                 consecutiveErrors = 0;
                 if (this.hasTimelineChanged(currentTimeline)) {
                     this.updateTimelineCache(currentTimeline);
@@ -102,11 +101,9 @@ class TimelineView {
             }
             catch (err) {
                 consecutiveErrors++;
-                // Solo mostrar warning si hay muchos errores consecutivos
                 if (consecutiveErrors === maxConsecutiveErrors) {
                     console.debug('[TimelineView] Timeline no disponible en este proyecto');
                 }
-                // No hacer nada más, solo ignorar silenciosamente
             }
         }, 4000);
     }
