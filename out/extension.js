@@ -40,13 +40,17 @@ const ExecuteTestCommand_1 = require("./application/runTest/ExecuteTestCommand")
 const NpmRunTests_1 = require("./infrastructure/test/NpmRunTests");
 const TerminalViewProvider_1 = require("./presentation/terminal/TerminalViewProvider");
 const TimelineView_1 = require("./presentation/timeline/TimelineView");
+const TestMenuProvider_1 = require("./presentation/menu/TestMenuProvider");
 let terminalProvider = null;
 let timelineView = null;
+let testMenuProvider = null;
 async function activate(context) {
     // 🔹 Crear TimelineView primero
     timelineView = new TimelineView_1.TimelineView(context);
     // 🔹 Crear TerminalViewProvider con TimelineView
     terminalProvider = new TerminalViewProvider_1.TerminalViewProvider(context, timelineView);
+    // 🔹 Crear el menú de opciones TDD
+    testMenuProvider = new TestMenuProvider_1.TestMenuProvider();
     // 🔹 Crear instancias para ejecutar tests
     const runTests = new NpmRunTests_1.NpmRunTests(terminalProvider);
     const executeTestCommand = new ExecuteTestCommand_1.ExecuteTestCommand(runTests);
@@ -75,7 +79,15 @@ async function activate(context) {
             }
         }
     });
-    context.subscriptions.push(runTestCmd);
+    // 🔹 Comando Clear Terminal
+    const clearTerminalCmd = vscode.commands.registerCommand('TDD.clearTerminal', () => {
+        if (terminalProvider) {
+            terminalProvider.clearTerminal();
+        }
+    });
+    context.subscriptions.push(runTestCmd, clearTerminalCmd);
+    // 🔹 Registrar el menú de opciones TDD
+    context.subscriptions.push(vscode.window.registerTreeDataProvider('tddTestExecution', testMenuProvider));
     // 🔹 Registrar Terminal TDDLab
     context.subscriptions.push(vscode.window.registerWebviewViewProvider(TerminalViewProvider_1.TerminalViewProvider.viewType, terminalProvider));
     // 🔹 Registrar TimelineView (si quieres que también esté disponible como vista separada)
@@ -84,5 +96,6 @@ async function activate(context) {
 function deactivate() {
     terminalProvider = null;
     timelineView = null;
+    testMenuProvider = null;
 }
 //# sourceMappingURL=extension.js.map

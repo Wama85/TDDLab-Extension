@@ -41,8 +41,9 @@ export class TimelineView implements vscode.WebviewViewProvider {
       this.updateTimelineCache(timeline);
     } catch (err) {
       webview.html = `<h2>TDDLab Timeline</h2>
-                      <p style="color:gray;">⚠️ Timeline no disponible aún</p>`;
-      console.warn('[TimelineView] Error inicial (ignorado):', err);
+                      <p style="color:gray;">⚠️ Timeline no disponible</p>
+                      <p style="color:#666;font-size:12px;">Ejecuta tests para ver el timeline</p>`;
+      console.debug('[TimelineView] Timeline no disponible (esperado en proyectos sin tests)');
     }
   }
 
@@ -51,15 +52,22 @@ export class TimelineView implements vscode.WebviewViewProvider {
       const timeline = await this.getTimeline.execute();
       return this.generateHtmlFragment(timeline, webview);
     } catch (err) {
-      console.warn('[TimelineView] getTimelineHtml error (ignorado):', err);
-      return `<p style="color:gray;">⚠️ No se pudo refrescar el timeline</p>`;
+      console.debug('[TimelineView] Timeline no disponible');
+      return `<p style="color:#666;font-size:12px;">Sin timeline disponible</p>`;
     }
   }
 
   private startTimelinePolling(): void {
+    let consecutiveErrors = 0;
+    const maxConsecutiveErrors = 3;
+
     setInterval(async () => {
       try {
         const currentTimeline = await this.getTimeline.execute();
+        
+        // Resetear contador de errores si fue exitoso
+        consecutiveErrors = 0;
+        
         if (this.hasTimelineChanged(currentTimeline)) {
           this.updateTimelineCache(currentTimeline);
 
@@ -71,8 +79,13 @@ export class TimelineView implements vscode.WebviewViewProvider {
           }
         }
       } catch (err) {
-        // 👇 no mostrar popup, solo aviso en consola
-        console.warn('[TimelineView] Polling error (ignorado):', err);
+        consecutiveErrors++;
+        
+        // Solo mostrar warning si hay muchos errores consecutivos
+        if (consecutiveErrors === maxConsecutiveErrors) {
+          console.debug('[TimelineView] Timeline no disponible en este proyecto');
+        }
+        // No hacer nada más, solo ignorar silenciosamente
       }
     }, 4000);
   }

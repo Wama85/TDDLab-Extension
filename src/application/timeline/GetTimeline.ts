@@ -5,6 +5,7 @@ import { TimelineRepository } from '../../application/timeline/repository/Timeli
 
 export class GetTimeline  {
     private readonly timelineRepository: TimelineRepository;
+    private hasShownError: boolean = false;
 
     constructor(rootPath: string) {
         this.timelineRepository = new TimelineRepository(rootPath);        
@@ -15,8 +16,13 @@ export class GetTimeline  {
         try {
             const timeline = await this.timelineRepository.getTimelines();
             response = timeline;
-        } catch {
-            vscode.window.showErrorMessage('Error al obtener la linea de tiempo.');
+            // Si tiene éxito, resetear el flag de error
+            this.hasShownError = false;
+        } catch (error) {
+            // Solo lanzar el error sin mostrar mensaje al usuario
+            // El TimelineView ya maneja esto de forma silenciosa
+            console.debug('[GetTimeline] No se pudo obtener el timeline (esperado en proyectos sin tests)');
+            throw error; // Lanzar el error para que TimelineView lo maneje
         }
         return response;
     }
