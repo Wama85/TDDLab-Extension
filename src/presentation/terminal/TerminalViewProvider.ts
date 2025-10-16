@@ -54,7 +54,7 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
         break;
       
       case 'runTddTest':
-        await this.executeRealCommand('npm run test');
+        await this.executeRealCommand('npm test');
         break;
       
       case 'runCypress':
@@ -76,12 +76,34 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
 
   private async executeRealCommand(command: string): Promise<void> {
     if (!command.trim()) {
+      this.sendToTerminal('$ ');
       return;
     }
-    this.sendToTerminal(`$ ${command}\r\n`);
-    this.terminalPort.createAndExecuteCommand('TDDLab Terminal', command);
-    this.sendToTerminal('💡 Comando ejecutado en terminal VS Code\r\n');
-    this.sendToTerminal('📋 Ver resultados en panel de terminales\r\n\r\n');
+    this.sendToTerminal(`\r\n$ ${command}\r\n`);
+    try {
+      const result = await this.terminalPort.createAndExecuteCommand('TDDLab Terminal', command);
+      if (result.output) {
+        this.sendToTerminal(result.output);
+        if (!result.output.endsWith('\n')) {
+          this.sendToTerminal('\r\n');
+        }
+      }
+      if (result.error) {
+        this.sendToTerminal(`\x1b[31m${result.error}\x1b[0m`);
+        if (!result.error.endsWith('\n')) {
+          this.sendToTerminal('\r\n');
+        }
+      }
+      if (result.error && !result.output) {
+        this.sendToTerminal('\x1b[33m⚠️  Comando completado con errores\x1b[0m\r\n');
+      } else if (result.output) {
+        this.sendToTerminal('\x1b[32m✅ Comando ejecutado correctamente\x1b[0m\r\n');
+      }
+    } catch (error: any) {
+      this.sendToTerminal(`\x1b[31m❌ Error ejecutando comando: ${error.message}\x1b[0m\r\n`);
+    }
+
+    this.sendToTerminal('\r\n$ ');
   }
 
   private async updateTimelineInWebview() {
@@ -239,7 +261,9 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
             rows: 30,
             theme: {
               background: '#1e1e1e',
-              foreground: '#ffffff'
+              foreground: '#ffffff',
+              cursor: '#ffffff',
+              selection: '#264f78'
             },
             allowTransparency: false,
             convertEol: true
@@ -310,29 +334,24 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
           });
 
           window.addEventListener('message', event => {
-            const message = event.data;
-            if (message.command === 'updateTimeline') {
-              document.getElementById('timeline-content').innerHTML = message.html;
-            }
-            if (message.command === 'writeToTerminal') {
-              const text = message.text || '';
-              const lines = text.split('\\n');
-              lines.forEach((line, index) => {
-                term.write(line);
-                if (index < lines.length - 1) {
-                  term.write('\\r\\n');
-                }
-              });
-            }
-            if (message.command === 'executeCommand') {
-              term.write('\\r\\n$ ' + message.text + '\\r\\n');
-            }
-            if (message.command === 'clearTerminal') {
-              term.clear();
-              term.write('$ ');
-            }
-          });
-        </script>
+          const message = event.data;
+          if (message.command === 'updateTimeline') {
+            document.getElementById('timeline-content').innerHTML = message.html;
+          }
+          if (message.command === 'writeToTerminal') {
+            const text = message.text || '';
+            // Escribir el texto directamente - xterm.js maneja los códigos ANSI
+            term.write(text);
+          }
+          if (message.command === 'executeCommand') {
+            term.write('\\r\\n$ ' + message.text + '\\r\\n');
+          }
+          if (message.command === 'clearTerminal') {
+            term.clear();
+            term.write('$ ');
+          }
+        });
+      </script>
       </body>
       </html>
     `;

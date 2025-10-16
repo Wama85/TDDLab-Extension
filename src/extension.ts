@@ -29,32 +29,24 @@ export async function activate(context: vscode.ExtensionContext) {
     // Crear instancias para ejecutar tests
     const runTests = new NpmRunTests(terminalProvider);
     const executeTestCommand = new ExecuteTestCommand(runTests);
-
     // Botón/Comando Run Test
     const runTestCmd = vscode.commands.registerCommand('TDD.runTest', async () => {
-      try {
-        if (!terminalProvider) {
-          vscode.window.showErrorMessage('Terminal no disponible');
-          return;
-        }
+  try {
+    if (!terminalProvider) {
+      vscode.window.showErrorMessage('Terminal no disponible');
+      return;
+    }
 
-        await vscode.commands.executeCommand('tddTerminalView.focus');
-        
-        // Usar el terminal port para ejecutar en terminal real
-        terminalPort.createAndExecuteCommand('TDDLab Tests', 'npm run test');
-        
-        // Feedback en terminal web
-        terminalProvider.sendToTerminal('\r\n🧪 Ejecutando tests...\r\n');
-        terminalProvider.sendToTerminal('📋 Los resultados aparecerán en la terminal de tests\r\n\r\n');
-        
-      } catch (error: any) {
-        const msg = `❌ Error ejecutando tests: ${error.message}`;
-        if (terminalProvider) {
-          terminalProvider.sendToTerminal(msg);
-        } else {
-          vscode.window.showErrorMessage(msg);
-        }
-      }
+    await vscode.commands.executeCommand('tddTerminalView.focus');
+    
+    terminalProvider.executeCommand('npm test');
+    
+  } catch (error: any) {
+    const msg = `❌ Error ejecutando tests: ${error.message}`;
+    if (terminalProvider) {
+      terminalProvider.sendToTerminal(msg);
+    }
+  }
     });
 
     // Comando Clear Terminal
