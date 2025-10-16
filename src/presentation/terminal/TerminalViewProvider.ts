@@ -74,7 +74,7 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-   private async executeRealCommand(command: string): Promise<void> {
+  public async executeRealCommand(command: string): Promise<void> {
     if (!command.trim()) {
       this.sendToTerminal('$ ');
       return;

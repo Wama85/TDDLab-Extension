@@ -35,17 +35,47 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VSCodeTerminalRepository = void 0;
 const vscode = __importStar(require("vscode"));
+const child_process_1 = require("child_process");
+const util_1 = require("util");
+const execAsync = (0, util_1.promisify)(child_process_1.exec);
 class VSCodeTerminalRepository {
     getTerminalByName(name) {
         return vscode.window.terminals.find(terminal => terminal.name === name);
     }
-    createAndExecuteCommand(terminalName, command) {
-        let terminal = this.getTerminalByName(terminalName);
-        if (!terminal) {
-            terminal = vscode.window.createTerminal(terminalName);
+    async createAndExecuteCommand(terminalName, command) {
+        try {
+            console.log(`[VSCodeTerminalRepository] Executing: ${command}`);
+            // Obtener el workspace actual
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            const cwd = workspaceFolder ? workspaceFolder.uri.fsPath : process.cwd();
+            const { stdout, stderr } = await execAsync(command, {
+                cwd: cwd,
+                encoding: 'utf8',
+                maxBuffer: 1024 * 1024 * 10 // 10MB buffer
+            });
+            let terminal = this.getTerminalByName(terminalName);
+            if (!terminal) {
+                terminal = vscode.window.createTerminal({
+                    name: terminalName,
+                    cwd: cwd
+                });
+            }
+            terminal.show();
+            terminal.sendText(command);
+            return { output: stdout, error: stderr };
         }
-        terminal.show();
-        terminal.sendText(command);
+        catch (error) {
+            console.error(`[VSCodeTerminalRepository] Error executing command: ${error}`);
+            const terminal = vscode.window.createTerminal({
+                name: terminalName,
+            });
+            terminal.show();
+            terminal.sendText(`echo "Error: ${error.message}"`);
+            return {
+                output: '',
+                error: error.stderr || error.message || `Error ejecutando comando: ${command}`
+            };
+        }
     }
 }
 exports.VSCodeTerminalRepository = VSCodeTerminalRepository;

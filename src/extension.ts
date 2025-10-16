@@ -29,24 +29,28 @@ export async function activate(context: vscode.ExtensionContext) {
     // Crear instancias para ejecutar tests
     const runTests = new NpmRunTests(terminalProvider);
     const executeTestCommand = new ExecuteTestCommand(runTests);
+
     // Botón/Comando Run Test
     const runTestCmd = vscode.commands.registerCommand('TDD.runTest', async () => {
-  try {
-    if (!terminalProvider) {
-      vscode.window.showErrorMessage('Terminal no disponible');
-      return;
-    }
+      try {
+        if (!terminalProvider) {
+          vscode.window.showErrorMessage('Terminal no disponible');
+          return;
+        }
 
-    await vscode.commands.executeCommand('tddTerminalView.focus');
-    
-    terminalProvider.executeCommand('npm test');
-    
-  } catch (error: any) {
-    const msg = `❌ Error ejecutando tests: ${error.message}`;
-    if (terminalProvider) {
-      terminalProvider.sendToTerminal(msg);
-    }
-  }
+        await vscode.commands.executeCommand('tddTerminalView.focus');
+        
+        // Ejecutar comando de test a través del terminal provider
+        await terminalProvider.executeRealCommand('npm test');
+        
+      } catch (error: any) {
+        const msg = `❌ Error ejecutando tests: ${error.message}`;
+        if (terminalProvider) {
+          terminalProvider.sendToTerminal(`\x1b[31m${msg}\x1b[0m\r\n`);
+        } else {
+          vscode.window.showErrorMessage(msg);
+        }
+      }
     });
 
     // Comando Clear Terminal
@@ -57,26 +61,78 @@ export async function activate(context: vscode.ExtensionContext) {
     });
 
     // Comando Run Cypress
-    const runCypressCmd = vscode.commands.registerCommand('TDD.runCypress', () => {
-      if (terminalProvider) {
-        vscode.commands.executeCommand('tddTerminalView.focus');
-        terminalProvider.executeCommand('npx cypress run');
+    const runCypressCmd = vscode.commands.registerCommand('TDD.runCypress', async () => {
+      try {
+        if (!terminalProvider) {
+          vscode.window.showErrorMessage('Terminal no disponible');
+          return;
+        }
+
+        await vscode.commands.executeCommand('tddTerminalView.focus');
+        await terminalProvider.executeRealCommand('npx cypress run');
+        
+      } catch (error: any) {
+        const msg = `❌ Error ejecutando Cypress: ${error.message}`;
+        if (terminalProvider) {
+          terminalProvider.sendToTerminal(`\x1b[31m${msg}\x1b[0m\r\n`);
+        }
       }
     });
 
     // Comando Git Status
-    const gitStatusCmd = vscode.commands.registerCommand('TDD.gitStatus', () => {
-      if (terminalProvider) {
-        vscode.commands.executeCommand('tddTerminalView.focus');
-        terminalProvider.executeCommand('git status');
+    const gitStatusCmd = vscode.commands.registerCommand('TDD.gitStatus', async () => {
+      try {
+        if (!terminalProvider) {
+          vscode.window.showErrorMessage('Terminal no disponible');
+          return;
+        }
+
+        await vscode.commands.executeCommand('tddTerminalView.focus');
+        await terminalProvider.executeRealCommand('git status');
+        
+      } catch (error: any) {
+        const msg = `❌ Error ejecutando git status: ${error.message}`;
+        if (terminalProvider) {
+          terminalProvider.sendToTerminal(`\x1b[31m${msg}\x1b[0m\r\n`);
+        }
       }
     });
 
     // Comando NPM Install
-    const npmInstallCmd = vscode.commands.registerCommand('TDD.npmInstall', () => {
-      if (terminalProvider) {
-        vscode.commands.executeCommand('tddTerminalView.focus');
-        terminalProvider.executeCommand('npm install');
+    const npmInstallCmd = vscode.commands.registerCommand('TDD.npmInstall', async () => {
+      try {
+        if (!terminalProvider) {
+          vscode.window.showErrorMessage('Terminal no disponible');
+          return;
+        }
+
+        await vscode.commands.executeCommand('tddTerminalView.focus');
+        await terminalProvider.executeRealCommand('npm install');
+        
+      } catch (error: any) {
+        const msg = `❌ Error ejecutando npm install: ${error.message}`;
+        if (terminalProvider) {
+          terminalProvider.sendToTerminal(`\x1b[31m${msg}\x1b[0m\r\n`);
+        }
+      }
+    });
+
+    // Comando Build
+    const buildCmd = vscode.commands.registerCommand('TDD.build', async () => {
+      try {
+        if (!terminalProvider) {
+          vscode.window.showErrorMessage('Terminal no disponible');
+          return;
+        }
+
+        await vscode.commands.executeCommand('tddTerminalView.focus');
+        await terminalProvider.executeRealCommand('npm run build');
+        
+      } catch (error: any) {
+        const msg = `❌ Error ejecutando build: ${error.message}`;
+        if (terminalProvider) {
+          terminalProvider.sendToTerminal(`\x1b[31m${msg}\x1b[0m\r\n`);
+        }
       }
     });
 
@@ -85,7 +141,8 @@ export async function activate(context: vscode.ExtensionContext) {
       clearTerminalCmd, 
       runCypressCmd, 
       gitStatusCmd, 
-      npmInstallCmd
+      npmInstallCmd,
+      buildCmd
     );
 
     // Registrar el menú de opciones TDD
