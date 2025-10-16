@@ -74,36 +74,126 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private async executeRealCommand(command: string): Promise<void> {
+   private async executeRealCommand(command: string): Promise<void> {
     if (!command.trim()) {
       this.sendToTerminal('$ ');
       return;
     }
-    this.sendToTerminal(`\r\n$ ${command}\r\n`);
+
+    const trimmedCommand = command.trim();
+    
+    // Comandos especiales que se ejecutan localmente
+    if (trimmedCommand === 'clear') {
+      this.clearTerminal();
+      return;
+    }
+    
+    if (trimmedCommand === 'help' || trimmedCommand === '?') {
+      this.showHelp();
+      return;
+    }
+    
+    if (trimmedCommand === 'pwd') {
+      this.showCurrentDirectory();
+      return;
+    }
+
+    if (trimmedCommand === 'ls' || trimmedCommand === 'dir') {
+      await this.listDirectory();
+      return;
+    }
+
+    // Mostrar comando en terminal web con formato mejorado
+    this.sendToTerminal(`\r\n┌───[TDDLab]──────────────────────────────────────────┐\r\n`);
+    this.sendToTerminal(`│ Comando: ${trimmedCommand.padEnd(40)} │\r\n`);
+    this.sendToTerminal(`└────────────────────────────────────────────────────────┘\r\n`);
+
     try {
-      const result = await this.terminalPort.createAndExecuteCommand('TDDLab Terminal', command);
+      // Ejecutar comando y capturar output
+      const result = await this.terminalPort.createAndExecuteCommand('TDDLab Terminal', trimmedCommand);
+
+      // Mostrar output en terminal web
       if (result.output) {
         this.sendToTerminal(result.output);
         if (!result.output.endsWith('\n')) {
           this.sendToTerminal('\r\n');
         }
       }
-      if (result.error) {
-        this.sendToTerminal(`\x1b[31m${result.error}\x1b[0m`);
+
+      // Mostrar errores en terminal web
+      if (result.error && result.error.trim()) {
+        this.sendToTerminal(`\x1b[31m${result.error}\x1b[0m`); // Rojo para errores
         if (!result.error.endsWith('\n')) {
           this.sendToTerminal('\r\n');
         }
       }
+
+      // Mostrar estado del comando
       if (result.error && !result.output) {
         this.sendToTerminal('\x1b[33m⚠️  Comando completado con errores\x1b[0m\r\n');
-      } else if (result.output) {
+      } else if (result.output || !result.error) {
         this.sendToTerminal('\x1b[32m✅ Comando ejecutado correctamente\x1b[0m\r\n');
       }
+
     } catch (error: any) {
       this.sendToTerminal(`\x1b[31m❌ Error ejecutando comando: ${error.message}\x1b[0m\r\n`);
     }
 
+    // Mostrar prompt
     this.sendToTerminal('\r\n$ ');
+  }
+
+  private showHelp(): void {
+    const helpText = `
+┌───[TDDLab - Comandos]─────────────────────────────┐
+│                                                   │
+│  \x1b[36mComandos locales:\x1b[0m                                │
+│    clear     - Limpiar terminal                   │
+│    help, ?   - Mostrar esta ayuda                 │
+│    pwd       - Mostrar directorio actual          │
+│    ls, dir   - Listar archivos                    │
+│                                                   │
+│  \x1b[36mComandos en sistema:\x1b[0m                             │
+│    Cualquier otro comando se ejecuta en           │
+│    el sistema y muestra la salida aquí            │
+│                                                   │
+│  \x1b[36mComandos TDD:\x1b[0m                                    │
+│    npm test  - Ejecutar tests                     │
+│    npm run   - Ejecutar script npm                │
+│    git       - Comandos de Git                    │
+│                                                   │
+│  \x1b[36mAtajos:\x1b[0m                                          │
+│    Ctrl+C    - Cancelar comando actual            │
+│    Tab       - Autocompletar (próximamente)       │
+│                                                   │
+└───────────────────────────────────────────────────┘
+\r\n
+`;
+    this.sendToTerminal(helpText);
+  }
+
+  private showCurrentDirectory(): void {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    const currentDir = workspaceFolder ? workspaceFolder.uri.fsPath : process.cwd();
+    this.sendToTerminal(`\x1b[36m${currentDir}\x1b[0m\r\n\r\n`);
+  }
+
+  private async listDirectory(): Promise<void> {
+    try {
+      const result = await this.terminalPort.createAndExecuteCommand('TDDLab Terminal', 'ls -la');
+      if (result.output) {
+        this.sendToTerminal(result.output);
+      }
+      if (result.error && !result.output) {
+        // Si ls -la falla, intentar con dir (Windows)
+        const winResult = await this.terminalPort.createAndExecuteCommand('TDDLab Terminal', 'dir');
+        if (winResult.output) {
+          this.sendToTerminal(winResult.output);
+        }
+      }
+    } catch (error: any) {
+      this.sendToTerminal(`\x1b[31mError listando directorio: ${error.message}\x1b[0m\r\n`);
+    }
   }
 
   private async updateTimelineInWebview() {
