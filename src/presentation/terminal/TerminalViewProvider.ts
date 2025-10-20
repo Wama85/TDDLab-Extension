@@ -1,19 +1,36 @@
 import * as vscode from 'vscode';
 import { TimelineView } from '../timeline/TimelineView';
+import { TerminalPort } from '../../domain/model/TerminalPort';
 
 export class TerminalViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'tddTerminalView';
   private readonly context: vscode.ExtensionContext;
   private webviewView?: vscode.WebviewView;
-  private timelineView: TimelineView;
+  private readonly timelineView: TimelineView;
+  private readonly terminalPort: TerminalPort;
+  private terminalBuffer: string = '';
 
-  constructor(context: vscode.ExtensionContext, timelineView: TimelineView) {
+  private readonly BUFFER_STORAGE_KEY = 'tddTerminalBuffer';
+
+  constructor(context: vscode.ExtensionContext, timelineView: TimelineView, terminalPort: TerminalPort) {
     this.context = context;
     this.timelineView = timelineView;
+    this.terminalPort = terminalPort;
 
-    TimelineView.onTimelineUpdated(async () => {
-      await this.updateTimelineInWebview();
+    // Cargar buffer persistido
+    this.terminalBuffer = context.globalState.get(this.BUFFER_STORAGE_KEY, '');
+
+    // Configurar callback directo para el output
+    this.terminalPort.setOnOutputCallback((output: string) => {
+      this.sendToTerminal(output);
     });
+
+    // Timeline updates si existe
+    if (typeof (TimelineView as any).onTimelineUpdated === 'function') {
+      (TimelineView as any).onTimelineUpdated(async () => {
+        await this.updateTimelineInWebview();
+      });
+    }
   }
 
   async resolveWebviewView(
@@ -33,7 +50,96 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this.getHtml(timelineHtml);
 
+    webviewView.webview.onDidReceiveMessage(async (message) => {
+      await this.handleWebviewMessage(message);
+    });
+
+    // Restaurar el buffer persistido o mostrar mensaje inicial
+    if (this.terminalBuffer && this.terminalBuffer.trim() !== '') {
+      this.sendToTerminal(this.terminalBuffer, true);
+    } else {
+      this.sendToTerminal('\r\nBienvenido a la Terminal TDD\r\n$ ');
+    }
+
     console.log('[TerminalViewProvider] Webview inicializada ✅');
+  }
+
+  private async handleWebviewMessage(message: any): Promise<void> {
+    switch (message.command) {
+      case 'executeCommand':
+        await this.executeRealCommand(message.text);
+        break;
+      
+      case 'requestTimelineUpdate':
+        await this.updateTimelineInWebview();
+        break;
+      
+      case 'killCommand':
+        this.killCurrentCommand();
+        break;
+      
+      default:
+        console.warn(`Comando no reconocido: ${message.command}`);
+    }
+  }
+
+  private async executeRealCommand(command: string): Promise<void> {
+    if (!command.trim()) {
+      this.sendToTerminal('$ ');
+      return;
+    }
+
+    const trimmedCommand = command.trim();
+    
+    // Comandos locales
+    if (trimmedCommand === 'clear') {
+      this.clearTerminal();
+      return;
+    }
+    
+    if (trimmedCommand === 'help' || trimmedCommand === '?') {
+      this.showHelp();
+      return;
+    }
+
+    this.sendToTerminal(`\r\n$ ${trimmedCommand}\r\n`);
+
+    try {
+      await this.terminalPort.createAndExecuteCommand('TDDLab Terminal', trimmedCommand);
+    } catch (error: any) {
+      this.sendToTerminal(`❌ Error ejecutando comando: ${error.message}\r\n$ `);
+    }
+  }
+
+  private killCurrentCommand(): void {
+    this.terminalPort.killCurrentProcess();
+  }
+
+  private showHelp(): void {
+    const helpText = `\r
+┌───[TDDLab - Comandos]─────────────────────────────┐\r
+│                                                   │\r
+│  Comandos locales:                                │\r
+│    clear     - Limpiar terminal                   │\r
+│    help, ?   - Mostrar esta ayuda                 │\r
+│                                                   │\r
+│  Comandos del sistema:                            │\r
+│    Cualquier comando se ejecuta en tiempo real    │\r
+│    y muestra la salida directamente aquí          │\r
+│                                                   │\r
+│  Control:                                         │\r
+│    Ctrl+C    - Cancelar comando en ejecución      │\r
+│                                                   │\r
+│  Ejemplos:                                        │\r
+│    npm test  - Ejecutar tests                     │\r
+│    git status - Estado de Git                     │\r
+│    ls -la    - Listar archivos                    │\r
+│    pwd       - Directorio actual                  │\r
+│                                                   │\r
+└───────────────────────────────────────────────────┘\r
+\r\n$ `;
+
+    this.sendToTerminal(helpText);
   }
 
   private async updateTimelineInWebview() {
@@ -50,14 +156,16 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
- 
-  public sendToTerminal(message: string) {
+  public sendToTerminal(message: string, isRestoring: boolean = false) {
+    if (!isRestoring) {
+      this.terminalBuffer += message;
+      this.context.globalState.update(this.BUFFER_STORAGE_KEY, this.terminalBuffer);
+    }
+    
     if (this.webviewView) {
-     
-      const text = message.endsWith('\r\n') ? message.slice(0, -2) : message;
       this.webviewView.webview.postMessage({
         command: 'writeToTerminal',
-        text: text
+        text: message
       });
     }
   }
@@ -72,6 +180,9 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
   }
 
   public clearTerminal() {
+    this.terminalBuffer = '$ ';
+    this.context.globalState.update(this.BUFFER_STORAGE_KEY, this.terminalBuffer);
+    
     if (this.webviewView) {
       this.webviewView.webview.postMessage({
         command: 'clearTerminal'
@@ -79,244 +190,222 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
- private getHtml(timelineContent: string): string {
-  const xtermCssUri = 'https://cdn.jsdelivr.net/npm/xterm/css/xterm.css';
-  const xtermJsUri = 'https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js';
+  // MANTENER getHtml EXACTAMENTE IGUAL
+  private getHtml(timelineContent: string): string {
+    const xtermCssUri = 'https://cdn.jsdelivr.net/npm/xterm/css/xterm.css';
+    const xtermJsUri = 'https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js';
 
-  return /* html */ `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <title>Terminal TDD</title>
-      <link rel="stylesheet" href="${xtermCssUri}">
-      <script src="${xtermJsUri}"></script>
-      <style>
-        html, body {
-          margin: 0;
-          padding: 0;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          font-family: monospace;
-          background: #1e1e1e;
-          color: #eee;
-        }
-        #timeline {
-          flex: 0 0 auto;
-          background-color: #222;
-          color: #eee;
-          text-align: left;
-          padding: 10px;
-          border-bottom: 1px solid #444;
-        }
-        #timeline-content {
-          display: flex;
-          text-align: left;
-          flex-direction: row;
-          flex-wrap: wrap;
-          align-items: flex-start;
-          justify-content: flex-start;
-          width: 100%;
-        }
-        .timeline-dot {
-          display: inline-block;
-        }
-        #terminal {
-          flex: 1 1 auto;
-          text-align: left;
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-          padding: 0;
-          margin: 0;
-        }
-        .xterm {
-          width: 100% !important;
-          height: 100% !important;
-          text-align: left !important;
-          padding: 10px !important;
-          box-sizing: border-box !important;
-        }
-        .xterm-viewport {
-          width: 100% !important;
-          text-align: left !important;
-        }
-        .xterm-screen {
-          width: 100% !important;
-          text-align: left !important;
-        }
-        .xterm-rows {
-          text-align: left !important;
-          width: 100% !important;
-          padding-left: 0 !important;
-          margin-left: 0 !important;
-        }
-        .xterm-row {
-          text-align: left !important;
-          padding-left: 0 !important;
-          margin-left: 0 !important;
-        }
-        .xterm-char {
-          text-align: left !important;
-        }
-        /* Forzar alineación izquierda en todos los elementos del terminal */
-        #terminal > div {
-          text-align: left !important;
-          padding-left: 0 !important;
-          margin-left: 0 !important;
-        }
-        /* Estilos adicionales para el prompt */
-        .terminal-wrapper {
-          width: 100%;
-          height: 100%;
-          text-align: left;
-        }
-      </style>
-    </head>
-    <body>
-      <div id="timeline">
-        <h2>TDDLab Timeline</h2>
-        <div id="timeline-content">${timelineContent}</div>
-      </div>
-
-      <div class="terminal-wrapper">
-        <div id="terminal"></div>
-      </div>
-
-      <script>
-        const term = new Terminal({ 
-          cursorBlink: true,
-          cols: 80,
-          rows: 30,
-          theme: {
-            background: '#1e1e1e',
-            foreground: '#ffffff'
-          },
-          // Configuración adicional para forzar alineación
-          allowTransparency: false,
-          convertEol: true
-        });
-        
-        const terminalElement = document.getElementById('terminal');
-        term.open(terminalElement);
-        
-        // Forzar estilos de alineación después de la inicialización
-        setTimeout(() => {
-          const xtermRows = terminalElement.querySelector('.xterm-rows');
-          if (xtermRows) {
-            xtermRows.style.textAlign = 'left';
-            xtermRows.style.paddingLeft = '0';
-            xtermRows.style.marginLeft = '0';
-            xtermRows.style.width = '100%';
+    return /* html */ `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Terminal TDD</title>
+        <link rel="stylesheet" href="${xtermCssUri}">
+        <script src="${xtermJsUri}"></script>
+        <style>
+          html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            font-family: monospace;
+            background: #1e1e1e;
+            color: #eee;
           }
+          #timeline {
+            flex: 0 0 auto;
+            background-color: #222;
+            color: #eee;
+            text-align: left;
+            padding: 10px;
+            border-bottom: 1px solid #444;
+          }
+          #timeline-content {
+            display: flex;
+            text-align: left;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: flex-start;
+            width: 100%;
+          }
+          .timeline-dot {
+            display: inline-block;
+          }
+          #terminal {
+            flex: 1 1 auto;
+            text-align: left;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            padding: 0;
+            margin: 0;
+          }
+          .xterm {
+            width: 100% !important;
+            height: 100% !important;
+            text-align: left !important;
+            padding: 10px !important;
+            box-sizing: border-box !important;
+          }
+          .xterm-viewport {
+            width: 100% !important;
+            text-align: left !important;
+          }
+          .xterm-screen {
+            width: 100% !important;
+            text-align: left !important;
+          }
+          .xterm-rows {
+            text-align: left !important;
+            width: 100% !important;
+            padding-left: 0 !important;
+            margin-left: 0 !important;
+          }
+          .xterm-row {
+            text-align: left !important;
+            padding-left: 0 !important;
+            margin-left: 0 !important;
+          }
+          .xterm-char {
+            text-align: left !important;
+          }
+          #terminal > div {
+            text-align: left !important;
+            padding-left: 0 !important;
+            margin-left: 0 !important;
+          }
+          .terminal-wrapper {
+            width: 100%;
+            height: 100%;
+            text-align: left;
+          }
+        </style>
+      </head>
+      <body>
+        <div id="timeline">
+          <h2>TDDLab Timeline</h2>
+          <div id="timeline-content">${timelineContent}</div>
+        </div>
+
+        <div class="terminal-wrapper">
+          <div id="terminal"></div>
+        </div>
+
+        <script>
+          const vscode = acquireVsCodeApi();
           
-          const xtermScreen = terminalElement.querySelector('.xterm-screen');
-          if (xtermScreen) {
-            xtermScreen.style.textAlign = 'left';
-            xtermScreen.style.paddingLeft = '0';
-            xtermScreen.style.marginLeft = '0';
-          }
-        }, 100);
-        
-        // Ajustar el ancho del terminal al contenedor
-        const fitAddon = () => {
-          const container = document.querySelector('.terminal-wrapper');
-          if (container) {
-            const width = container.offsetWidth;
-            const height = container.offsetHeight;
-            const cols = Math.floor((width - 20) / 9); // Restar padding
-            const rows = Math.floor(height / 17);
-            term.resize(cols, rows);
-          }
-        };
-        
-        window.addEventListener('resize', fitAddon);
-        setTimeout(fitAddon, 200);
-        
-        term.focus();
-        
-        // Escribir mensaje de bienvenida
-        term.write('\\r\\nBienvenido a la Terminal TDD\\r\\n');
-        term.write('$ ');
-
-        let command = '';
-        const prompt = () => term.write('\\r\\n$ ');
-
-        term.onData(data => {
-          const code = data.charCodeAt(0);
-          if (code === 13) {
-            handleCommand(command.trim());
-            command = '';
-          } else if (code === 127) {
-            if (command.length > 0) {
-              command = command.slice(0, -1);
-              term.write('\\b \\b');
+          const term = new Terminal({ 
+            cursorBlink: true,
+            cols: 80,
+            rows: 30,
+            theme: {
+              background: '#1e1e1e',
+              foreground: '#ffffff'
+            },
+            allowTransparency: false,
+            convertEol: true
+          });
+          
+          const terminalElement = document.getElementById('terminal');
+          term.open(terminalElement);
+          
+          setTimeout(() => {
+            const xtermRows = terminalElement.querySelector('.xterm-rows');
+            if (xtermRows) {
+              xtermRows.style.textAlign = 'left';
+              xtermRows.style.paddingLeft = '0';
+              xtermRows.style.marginLeft = '0';
+              xtermRows.style.width = '100%';
             }
-          } else if (code >= 32 && code <= 126) {
-            command += data;
-            term.write(data);
-          }
-        });
+            
+            const xtermScreen = terminalElement.querySelector('.xterm-screen');
+            if (xtermScreen) {
+              xtermScreen.style.textAlign = 'left';
+              xtermScreen.style.paddingLeft = '0';
+              xtermScreen.style.marginLeft = '0';
+            }
+          }, 100);
+          
+          const fitAddon = () => {
+            const container = document.querySelector('.terminal-wrapper');
+            if (container) {
+              const width = container.offsetWidth;
+              const height = container.offsetHeight;
+              const cols = Math.floor((width - 20) / 9);
+              const rows = Math.floor(height / 17);
+              term.resize(cols, rows);
+            }
+          };
+          
+          window.addEventListener('resize', fitAddon);
+          setTimeout(fitAddon, 200);
+          
+          term.focus();
+          
+          let command = '';
+          let isExecuting = false;
 
-        function handleCommand(cmd) {
-          switch (cmd) {
-            case 'help':
-              term.write('\\r\\nComandos: help, clear, echo, about, test');
-              break;
-            case 'clear':
+          term.onData(data => {
+            const code = data.charCodeAt(0);
+            if (code === 13) {
+              if (command.trim() && !isExecuting) {
+                isExecuting = true;
+                vscode.postMessage({
+                  command: 'executeCommand',
+                  text: command
+                });
+                command = '';
+              } else if (!isExecuting) {
+                term.write('\\r\\n$ ');
+              }
+            } else if (code === 127) {
+              if (command.length > 0 && !isExecuting) {
+                command = command.slice(0, -1);
+                term.write('\\b \\b');
+              }
+            } else if (code === 3) {
+              // Ctrl+C - siempre funciona
+              term.write('^C');
+              vscode.postMessage({
+                command: 'killCommand'
+              });
+              isExecuting = false;
+              term.write('\\r\\n$ ');
+            } else if (code >= 32 && code <= 126 && !isExecuting) {
+              command += data;
+              term.write(data);
+            }
+          });
+          
+          window.addEventListener('message', event => {
+            const message = event.data;
+            if (message.command === 'updateTimeline') {
+              document.getElementById('timeline-content').innerHTML = message.html;
+            }
+            if (message.command === 'writeToTerminal') {
+              const text = message.text || '';
+              term.write(text);
+              if (message.text === '$ ' || message.text.endsWith('\\r\\n$ ')) {
+                isExecuting = false;
+              }
+            }
+            if (message.command === 'executeCommand') {
+              term.write('\\r\\n$ ' + message.text + '\\r\\n');
+              isExecuting = true;
+            }
+            if (message.command === 'clearTerminal') {
               term.clear();
               term.write('$ ');
-              break;
-            case 'about':
-              term.write('\\r\\nEsta es una consola simulada hecha con xterm.js');
-              break;
-            case 'test':
-            case 'npm test':
-            case 'npm run test':
-              term.write('\\r\\n🧪 Ejecutando tests...');
-              // Aquí podrías agregar lógica para ejecutar tests reales
-              break;
-            default:
-              if (cmd.startsWith('echo ')) {
-                term.write('\\r\\n' + cmd.slice(5));
-              } else if (cmd) {
-                term.write('\\r\\nComando no reconocido: ' + cmd);
-              }
-              break;
-          }
-          prompt();
-        }
-
-        // 🔹 Escuchar mensajes del backend
-        window.addEventListener('message', event => {
-          const message = event.data;
-          if (message.command === 'updateTimeline') {
-            document.getElementById('timeline-content').innerHTML = message.html;
-          }
-          if (message.command === 'writeToTerminal') {
-            const text = message.text || '';
-            // Forzar alineación izquierda para cada línea
-            const lines = text.split('\\n');
-            lines.forEach((line, index) => {
-              term.write(line);
-              if (index < lines.length - 1) {
-                term.write('\\r\\n');
-              }
-            });
-            term.write('\\r\\n');
-          }
-          if (message.command === 'executeCommand') {
-            term.write('\\r\\n$ ' + message.text + '\\r\\n');
-          }
-          if (message.command === 'clearTerminal') {
-            term.clear();
-            term.write('$ ');
-          }
-        });
-      </script>
-    </body>
-    </html>
-  `;
-}
+              isExecuting = false;
+              command = '';
+            }
+          });
+        </script>
+      </body>
+      </html>
+    `;
+  }
 }
