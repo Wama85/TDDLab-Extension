@@ -71,6 +71,10 @@ class TestMenuProvider {
                 command: 'TDD.runTest',
                 title: 'Run Tests'
             }),
+            new TestMenuItem('📁 Crear Proyecto', {
+                command: 'TDD.cloneCommand',
+                title: 'Crear Proyecto TDDLab'
+            }),
             new TestMenuItem('🧹 Clear Terminal', {
                 command: 'TDD.clearTerminal',
                 title: 'Clear Terminal'
@@ -78,14 +82,6 @@ class TestMenuProvider {
             new TestMenuItem('📊 Show Timeline', {
                 command: 'extension.showTimeline',
                 title: 'Show Timeline'
-            }),
-            new TestMenuItem('🤖 AI Assistant', {
-                command: 'TDD.AsistenteCommand',
-                title: 'AI Assistant'
-            }),
-            new TestMenuItem('📦 Export Session', {
-                command: 'TDD.exportCommand',
-                title: 'Export Session'
             })
         ];
     }

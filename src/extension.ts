@@ -4,6 +4,7 @@ import { NpmRunTests } from './infrastructure/test/NpmRunTests';
 import { TerminalViewProvider } from './presentation/terminal/TerminalViewProvider';
 import { TimelineView } from './presentation/timeline/TimelineView';
 import { TestMenuProvider } from './presentation/menu/TestMenuProvider';
+import { ExecuteCloneCommand } from './application/clone/ExecuteCloneCommand';
 
 let terminalProvider: TerminalViewProvider | null = null;
 let timelineView: TimelineView | null = null;
@@ -19,9 +20,10 @@ export async function activate(context: vscode.ExtensionContext) {
   //  Crear el menú de opciones TDD
   testMenuProvider = new TestMenuProvider();
   
-  //  Crear instancias para ejecutar tests
+  //  Crear instancias para ejecutar tests y clonar proyecto
   const runTests = new NpmRunTests(terminalProvider);
   const executeTestCommand = new ExecuteTestCommand(runTests);
+  const executeCloneCommand = new ExecuteCloneCommand(); // Ya no necesita tddBasePath
 
   //  Botón/Comando Run Test
   const runTestCmd = vscode.commands.registerCommand('TDD.runTest', async () => {
@@ -58,7 +60,16 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  context.subscriptions.push(runTestCmd, clearTerminalCmd);
+  //  Comando Crear Proyecto (ahora clona desde Git)
+  const cloneProjectCmd = vscode.commands.registerCommand('TDD.cloneCommand', async () => {
+    try {
+      await executeCloneCommand.execute(); // Ya no necesita parámetros
+    } catch (error: any) {
+      vscode.window.showErrorMessage(`Error al crear el proyecto: ${error.message}`);
+    }
+  });
+
+  context.subscriptions.push(runTestCmd, clearTerminalCmd, cloneProjectCmd);
 
   //  Registrar el menú de opciones TDD
   context.subscriptions.push(

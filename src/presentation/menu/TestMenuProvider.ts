@@ -41,6 +41,13 @@ export class TestMenuProvider implements vscode.TreeDataProvider<TestMenuItem> {
         }
       ),
       new TestMenuItem(
+        '📁 Crear Proyecto',
+        {
+          command: 'TDD.cloneCommand',
+          title: 'Crear Proyecto TDDLab'
+        }
+      ),
+      new TestMenuItem(
         '🧹 Clear Terminal',
         {
           command: 'TDD.clearTerminal',
@@ -52,20 +59,6 @@ export class TestMenuProvider implements vscode.TreeDataProvider<TestMenuItem> {
         {
           command: 'extension.showTimeline',
           title: 'Show Timeline'
-        }
-      ),
-      new TestMenuItem(
-        '🤖 AI Assistant',
-        {
-          command: 'TDD.AsistenteCommand',
-          title: 'AI Assistant'
-        }
-      ),
-      new TestMenuItem(
-        '📦 Export Session',
-        {
-          command: 'TDD.exportCommand',
-          title: 'Export Session'
         }
       )
     ];
