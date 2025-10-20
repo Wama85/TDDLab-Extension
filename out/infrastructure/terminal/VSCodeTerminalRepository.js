@@ -36,46 +36,98 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.VSCodeTerminalRepository = void 0;
 const vscode = __importStar(require("vscode"));
 const child_process_1 = require("child_process");
-const util_1 = require("util");
-const execAsync = (0, util_1.promisify)(child_process_1.exec);
 class VSCodeTerminalRepository {
-    getTerminalByName(name) {
-        return vscode.window.terminals.find(terminal => terminal.name === name);
+    outputChannel;
+    currentProcess = null;
+    onOutputCallback = null;
+    constructor() {
+        this.outputChannel = vscode.window.createOutputChannel('TDDLab Commands');
+    }
+    setOnOutputCallback(callback) {
+        this.onOutputCallback = callback;
     }
     async createAndExecuteCommand(terminalName, command) {
-        try {
-            console.log(`[VSCodeTerminalRepository] Executing: ${command}`);
-            // Obtener el workspace actual
-            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-            const cwd = workspaceFolder ? workspaceFolder.uri.fsPath : process.cwd();
-            const { stdout, stderr } = await execAsync(command, {
-                cwd: cwd,
-                encoding: 'utf8',
-                maxBuffer: 1024 * 1024 * 10 // 10MB buffer
-            });
-            let terminal = this.getTerminalByName(terminalName);
-            if (!terminal) {
-                terminal = vscode.window.createTerminal({
-                    name: terminalName,
-                    cwd: cwd
+        return new Promise((resolve) => {
+            try {
+                this.outputChannel.appendLine(`[${new Date().toISOString()}] Executing: ${command}`);
+                const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                const cwd = workspaceFolder ? workspaceFolder.uri.fsPath : process.cwd();
+                this.outputChannel.appendLine(`  Directory: ${cwd}`);
+                const [cmd, ...args] = this.parseCommand(command);
+                this.currentProcess = (0, child_process_1.spawn)(cmd, args, {
+                    cwd: cwd,
+                    shell: true,
+                    stdio: ['pipe', 'pipe', 'pipe']
+                });
+                this.currentProcess.stdout?.on('data', (data) => {
+                    const output = data.toString();
+                    this.outputChannel.append(output);
+                    if (this.onOutputCallback) {
+                        this.onOutputCallback(output);
+                    }
+                });
+                this.currentProcess.stderr?.on('data', (data) => {
+                    const error = data.toString();
+                    this.outputChannel.append(error);
+                    if (this.onOutputCallback) {
+                        this.onOutputCallback(`\x1b[31m${error}\x1b[0m`);
+                    }
+                });
+                this.currentProcess.on('close', (code) => {
+                    this.outputChannel.appendLine(`\nCommand exited with code: ${code}`);
+                    if (code === 0) {
+                        if (this.onOutputCallback) {
+                            this.onOutputCallback(`\x1b[32m✅ Comando ejecutado correctamente (código: ${code})\x1b[0m\r\n`);
+                        }
+                    }
+                    else {
+                        if (this.onOutputCallback) {
+                            this.onOutputCallback(`\x1b[31m❌ Comando falló con código: ${code}\x1b[0m\r\n`);
+                        }
+                    }
+                    this.currentProcess = null;
+                    resolve();
+                });
+                this.currentProcess.on('error', (error) => {
+                    this.outputChannel.appendLine(`Process error: ${error.message}`);
+                    if (this.onOutputCallback) {
+                        this.onOutputCallback(`\x1b[31m❌ Error ejecutando comando: ${error.message}\x1b[0m\r\n`);
+                    }
+                    this.currentProcess = null;
+                    resolve();
                 });
             }
-            terminal.show();
-            terminal.sendText(command);
-            return { output: stdout, error: stderr };
+            catch (error) {
+                this.outputChannel.appendLine(`  ERROR: ${error.message}`);
+                if (this.onOutputCallback) {
+                    this.onOutputCallback(`\x1b[31m❌ Error: ${error.message}\x1b[0m\r\n`);
+                }
+                resolve();
+            }
+        });
+    }
+    parseCommand(command) {
+        const regex = /[^\s"']+|"([^"]*)"|'([^']*)'/g;
+        const matches = [];
+        let match;
+        while ((match = regex.exec(command)) !== null) {
+            matches.push(match[1] || match[2] || match[0]);
         }
-        catch (error) {
-            console.error(`[VSCodeTerminalRepository] Error executing command: ${error}`);
-            const terminal = vscode.window.createTerminal({
-                name: terminalName,
-            });
-            terminal.show();
-            terminal.sendText(`echo "Error: ${error.message}"`);
-            return {
-                output: '',
-                error: error.stderr || error.message || `Error ejecutando comando: ${command}`
-            };
+        return matches.length > 0 ? matches : [command];
+    }
+    killCurrentProcess() {
+        if (this.currentProcess) {
+            this.currentProcess.kill();
+            this.currentProcess = null;
+            this.outputChannel.appendLine('Process killed by user');
+            if (this.onOutputCallback) {
+                this.onOutputCallback('\x1b[33m🛑 Proceso cancelado por el usuario\x1b[0m\r\n');
+            }
         }
+    }
+    dispose() {
+        this.killCurrentProcess();
+        this.outputChannel.dispose();
     }
 }
 exports.VSCodeTerminalRepository = VSCodeTerminalRepository;

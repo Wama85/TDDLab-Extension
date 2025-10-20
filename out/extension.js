@@ -48,18 +48,12 @@ let testMenuProvider = null;
 async function activate(context) {
     console.log('TDDLab extension is activating...');
     try {
-        // Crear TimelineView primero
         timelineView = new TimelineView_1.TimelineView(context);
-        // Crear el repositorio de terminal
         const terminalPort = new VSCodeTerminalRepository_1.VSCodeTerminalRepository();
-        // Crear TerminalViewProvider con TimelineView y terminalPort
         terminalProvider = new TerminalViewProvider_1.TerminalViewProvider(context, timelineView, terminalPort);
-        // Crear el menú de opciones TDD
         testMenuProvider = new TestMenuProvider_1.TestMenuProvider();
-        // Crear instancias para ejecutar tests
         const runTests = new NpmRunTests_1.NpmRunTests(terminalProvider);
         const executeTestCommand = new ExecuteTestCommand_1.ExecuteTestCommand(runTests);
-        // Botón/Comando Run Test
         const runTestCmd = vscode.commands.registerCommand('TDD.runTest', async () => {
             try {
                 if (!terminalProvider) {
@@ -67,99 +61,48 @@ async function activate(context) {
                     return;
                 }
                 await vscode.commands.executeCommand('tddTerminalView.focus');
-                // Ejecutar comando de test a través del terminal provider
-                await terminalProvider.executeRealCommand('npm test');
+                // CAMBIO: Usar executeCommand en lugar de executeRealCommand
+                terminalProvider.executeCommand('npm test');
             }
             catch (error) {
                 const msg = `❌ Error ejecutando tests: ${error.message}`;
                 if (terminalProvider) {
                     terminalProvider.sendToTerminal(`\x1b[31m${msg}\x1b[0m\r\n`);
                 }
-                else {
-                    vscode.window.showErrorMessage(msg);
-                }
             }
         });
-        // Comando Clear Terminal
         const clearTerminalCmd = vscode.commands.registerCommand('TDD.clearTerminal', () => {
             if (terminalProvider) {
                 terminalProvider.clearTerminal();
             }
         });
-        // Comando Run Cypress
-        const runCypressCmd = vscode.commands.registerCommand('TDD.runCypress', async () => {
-            try {
-                if (!terminalProvider) {
-                    vscode.window.showErrorMessage('Terminal no disponible');
-                    return;
-                }
-                await vscode.commands.executeCommand('tddTerminalView.focus');
-                await terminalProvider.executeRealCommand('npx cypress run');
-            }
-            catch (error) {
-                const msg = `❌ Error ejecutando Cypress: ${error.message}`;
-                if (terminalProvider) {
-                    terminalProvider.sendToTerminal(`\x1b[31m${msg}\x1b[0m\r\n`);
-                }
+        // Comando Run Cypress (si lo tienes)
+        const runCypressCmd = vscode.commands.registerCommand('TDD.runCypress', () => {
+            if (terminalProvider) {
+                vscode.commands.executeCommand('tddTerminalView.focus');
+                // CAMBIO: Usar executeCommand en lugar de executeRealCommand
+                terminalProvider.executeCommand('npx cypress run');
             }
         });
-        // Comando Git Status
-        const gitStatusCmd = vscode.commands.registerCommand('TDD.gitStatus', async () => {
-            try {
-                if (!terminalProvider) {
-                    vscode.window.showErrorMessage('Terminal no disponible');
-                    return;
-                }
-                await vscode.commands.executeCommand('tddTerminalView.focus');
-                await terminalProvider.executeRealCommand('git status');
-            }
-            catch (error) {
-                const msg = `❌ Error ejecutando git status: ${error.message}`;
-                if (terminalProvider) {
-                    terminalProvider.sendToTerminal(`\x1b[31m${msg}\x1b[0m\r\n`);
-                }
+        // Comando Git Status (si lo tienes)
+        const gitStatusCmd = vscode.commands.registerCommand('TDD.gitStatus', () => {
+            if (terminalProvider) {
+                vscode.commands.executeCommand('tddTerminalView.focus');
+                // CAMBIO: Usar executeCommand en lugar de executeRealCommand
+                terminalProvider.executeCommand('git status');
             }
         });
-        // Comando NPM Install
-        const npmInstallCmd = vscode.commands.registerCommand('TDD.npmInstall', async () => {
-            try {
-                if (!terminalProvider) {
-                    vscode.window.showErrorMessage('Terminal no disponible');
-                    return;
-                }
-                await vscode.commands.executeCommand('tddTerminalView.focus');
-                await terminalProvider.executeRealCommand('npm install');
-            }
-            catch (error) {
-                const msg = `❌ Error ejecutando npm install: ${error.message}`;
-                if (terminalProvider) {
-                    terminalProvider.sendToTerminal(`\x1b[31m${msg}\x1b[0m\r\n`);
-                }
+        // Comando NPM Install (si lo tienes)
+        const npmInstallCmd = vscode.commands.registerCommand('TDD.npmInstall', () => {
+            if (terminalProvider) {
+                vscode.commands.executeCommand('tddTerminalView.focus');
+                // CAMBIO: Usar executeCommand en lugar de executeRealCommand
+                terminalProvider.executeCommand('npm install');
             }
         });
-        // Comando Build
-        const buildCmd = vscode.commands.registerCommand('TDD.build', async () => {
-            try {
-                if (!terminalProvider) {
-                    vscode.window.showErrorMessage('Terminal no disponible');
-                    return;
-                }
-                await vscode.commands.executeCommand('tddTerminalView.focus');
-                await terminalProvider.executeRealCommand('npm run build');
-            }
-            catch (error) {
-                const msg = `❌ Error ejecutando build: ${error.message}`;
-                if (terminalProvider) {
-                    terminalProvider.sendToTerminal(`\x1b[31m${msg}\x1b[0m\r\n`);
-                }
-            }
-        });
-        context.subscriptions.push(runTestCmd, clearTerminalCmd, runCypressCmd, gitStatusCmd, npmInstallCmd, buildCmd);
-        // Registrar el menú de opciones TDD
+        context.subscriptions.push(runTestCmd, clearTerminalCmd, runCypressCmd, gitStatusCmd, npmInstallCmd);
         context.subscriptions.push(vscode.window.registerTreeDataProvider('tddTestExecution', testMenuProvider));
-        // Registrar Terminal TDDLab
         context.subscriptions.push(vscode.window.registerWebviewViewProvider(TerminalViewProvider_1.TerminalViewProvider.viewType, terminalProvider));
-        // Registrar TimelineView
         context.subscriptions.push(vscode.window.registerWebviewViewProvider('tddTimelineView', timelineView));
         console.log('TDDLab extension activated ✅');
     }

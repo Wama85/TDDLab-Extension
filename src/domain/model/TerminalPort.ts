@@ -1,3 +1,5 @@
 export interface TerminalPort {
-  createAndExecuteCommand(terminalName: string, command: string): Promise<{output: string, error: string}>;
+  createAndExecuteCommand(terminalName: string, command: string): Promise<void>;
+  setOnOutputCallback(callback: (output: string) => void): void;
+  killCurrentProcess(): void;
 }

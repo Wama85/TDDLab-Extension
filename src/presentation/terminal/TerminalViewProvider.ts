@@ -8,11 +8,18 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
   private webviewView?: vscode.WebviewView;
   private readonly timelineView: TimelineView;
   private readonly terminalPort: TerminalPort;
+  private isExecuting: boolean = false;
+  private terminalBuffer: string = '';
 
   constructor(context: vscode.ExtensionContext, timelineView: TimelineView, terminalPort: TerminalPort) {
     this.context = context;
     this.timelineView = timelineView;
     this.terminalPort = terminalPort;
+
+    // Configurar callback directo para el output
+    this.terminalPort.setOnOutputCallback((output: string) => {
+      this.sendToTerminal(output);
+    });
 
     TimelineView.onTimelineUpdated(async () => {
       await this.updateTimelineInWebview();
@@ -40,6 +47,14 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
       await this.handleWebviewMessage(message);
     });
 
+    // Restaurar el buffer si existe
+    if (this.terminalBuffer) {
+      this.sendToTerminal(this.terminalBuffer);
+    } else {
+      // Mensaje inicial solo si no hay buffer
+      this.sendToTerminal('\r\nBienvenido a la Terminal TDD\r\n$ ');
+    }
+
     console.log('[TerminalViewProvider] Webview inicializada ✅');
   }
 
@@ -53,20 +68,8 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
         await this.updateTimelineInWebview();
         break;
       
-      case 'runTddTest':
-        await this.executeRealCommand('npm test');
-        break;
-      
-      case 'runCypress':
-        await this.executeRealCommand('npx cypress run');
-        break;
-      
-      case 'gitStatus':
-        await this.executeRealCommand('git status');
-        break;
-      
-      case 'npmInstall':
-        await this.executeRealCommand('npm install');
+      case 'killCommand':
+        this.killCurrentCommand();
         break;
       
       default:
@@ -74,7 +77,12 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  public async executeRealCommand(command: string): Promise<void> {
+  private async executeRealCommand(command: string): Promise<void> {
+    if (this.isExecuting) {
+      this.sendToTerminal('\r\n\x1b[33m⚠️  Ya hay un comando en ejecución. Espera a que termine.\x1b[0m\r\n$ ');
+      return;
+    }
+
     if (!command.trim()) {
       this.sendToTerminal('$ ');
       return;
@@ -82,7 +90,6 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
 
     const trimmedCommand = command.trim();
     
-    // Comandos especiales que se ejecutan localmente
     if (trimmedCommand === 'clear') {
       this.clearTerminal();
       return;
@@ -92,108 +99,53 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
       this.showHelp();
       return;
     }
-    
-    if (trimmedCommand === 'pwd') {
-      this.showCurrentDirectory();
-      return;
-    }
 
-    if (trimmedCommand === 'ls' || trimmedCommand === 'dir') {
-      await this.listDirectory();
-      return;
-    }
+    this.isExecuting = true;
 
-    // Mostrar comando en terminal web con formato mejorado
-    this.sendToTerminal(`\r\n┌───[TDDLab]──────────────────────────────────────────┐\r\n`);
-    this.sendToTerminal(`│ Comando: ${trimmedCommand.padEnd(40)} │\r\n`);
-    this.sendToTerminal(`└────────────────────────────────────────────────────────┘\r\n`);
+    this.sendToTerminal(`\r\n$ ${trimmedCommand}\r\n`);
 
     try {
-      // Ejecutar comando y capturar output
-      const result = await this.terminalPort.createAndExecuteCommand('TDDLab Terminal', trimmedCommand);
-
-      // Mostrar output en terminal web
-      if (result.output) {
-        this.sendToTerminal(result.output);
-        if (!result.output.endsWith('\n')) {
-          this.sendToTerminal('\r\n');
-        }
-      }
-
-      // Mostrar errores en terminal web
-      if (result.error && result.error.trim()) {
-        this.sendToTerminal(`\x1b[31m${result.error}\x1b[0m`); // Rojo para errores
-        if (!result.error.endsWith('\n')) {
-          this.sendToTerminal('\r\n');
-        }
-      }
-
-      // Mostrar estado del comando
-      if (result.error && !result.output) {
-        this.sendToTerminal('\x1b[33m⚠️  Comando completado con errores\x1b[0m\r\n');
-      } else if (result.output || !result.error) {
-        this.sendToTerminal('\x1b[32m✅ Comando ejecutado correctamente\x1b[0m\r\n');
-      }
-
+      await this.terminalPort.createAndExecuteCommand('TDDLab Terminal', trimmedCommand);
     } catch (error: any) {
       this.sendToTerminal(`\x1b[31m❌ Error ejecutando comando: ${error.message}\x1b[0m\r\n`);
+    } finally {
+      this.isExecuting = false;
+      this.sendToTerminal('\r\n$ ');
     }
+  }
 
-    // Mostrar prompt
-    this.sendToTerminal('\r\n$ ');
+  private killCurrentCommand(): void {
+    if (this.isExecuting && this.terminalPort.killCurrentProcess) {
+      this.terminalPort.killCurrentProcess();
+      this.isExecuting = false;
+    }
   }
 
   private showHelp(): void {
-    const helpText = `
-┌───[TDDLab - Comandos]─────────────────────────────┐
-│                                                   │
-│  \x1b[36mComandos locales:\x1b[0m                                │
-│    clear     - Limpiar terminal                   │
-│    help, ?   - Mostrar esta ayuda                 │
-│    pwd       - Mostrar directorio actual          │
-│    ls, dir   - Listar archivos                    │
-│                                                   │
-│  \x1b[36mComandos en sistema:\x1b[0m                             │
-│    Cualquier otro comando se ejecuta en           │
-│    el sistema y muestra la salida aquí            │
-│                                                   │
-│  \x1b[36mComandos TDD:\x1b[0m                                    │
-│    npm test  - Ejecutar tests                     │
-│    npm run   - Ejecutar script npm                │
-│    git       - Comandos de Git                    │
-│                                                   │
-│  \x1b[36mAtajos:\x1b[0m                                          │
-│    Ctrl+C    - Cancelar comando actual            │
-│    Tab       - Autocompletar (próximamente)       │
-│                                                   │
-└───────────────────────────────────────────────────┘
-\r\n
-`;
+    const helpText = `\r
+┌───[TDDLab - Comandos]─────────────────────────────┐\r
+│                                                   │\r
+│  Comandos locales:                                │\r
+│    clear     - Limpiar terminal                   │\r
+│    help, ?   - Mostrar esta ayuda                 │\r
+│                                                   │\r
+│  Comandos del sistema:                            │\r
+│    Cualquier comando se ejecuta en tiempo real    │\r
+│    y muestra la salida directamente aquí          │\r
+│                                                   │\r
+│  Control:                                         │\r
+│    Ctrl+C    - Cancelar comando en ejecución      │\r
+│                                                   │\r
+│  Ejemplos:                                        │\r
+│    npm test  - Ejecutar tests                     │\r
+│    git status - Estado de Git                     │\r
+│    ls -la    - Listar archivos                    │\r
+│    pwd       - Directorio actual                  │\r
+│                                                   │\r
+└───────────────────────────────────────────────────┘\r
+\r\n`;
+
     this.sendToTerminal(helpText);
-  }
-
-  private showCurrentDirectory(): void {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    const currentDir = workspaceFolder ? workspaceFolder.uri.fsPath : process.cwd();
-    this.sendToTerminal(`\x1b[36m${currentDir}\x1b[0m\r\n\r\n`);
-  }
-
-  private async listDirectory(): Promise<void> {
-    try {
-      const result = await this.terminalPort.createAndExecuteCommand('TDDLab Terminal', 'ls -la');
-      if (result.output) {
-        this.sendToTerminal(result.output);
-      }
-      if (result.error && !result.output) {
-        // Si ls -la falla, intentar con dir (Windows)
-        const winResult = await this.terminalPort.createAndExecuteCommand('TDDLab Terminal', 'dir');
-        if (winResult.output) {
-          this.sendToTerminal(winResult.output);
-        }
-      }
-    } catch (error: any) {
-      this.sendToTerminal(`\x1b[31mError listando directorio: ${error.message}\x1b[0m\r\n`);
-    }
   }
 
   private async updateTimelineInWebview() {
@@ -211,11 +163,13 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
   }
 
   public sendToTerminal(message: string) {
+    // Guardar en buffer para persistencia
+    this.terminalBuffer += message;
+    
     if (this.webviewView) {
-      const text = message.endsWith('\r\n') ? message.slice(0, -2) : message;
       this.webviewView.webview.postMessage({
         command: 'writeToTerminal',
-        text: text
+        text: message
       });
     }
   }
@@ -230,6 +184,7 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
   }
 
   public clearTerminal() {
+    this.terminalBuffer = '$ ';
     if (this.webviewView) {
       this.webviewView.webview.postMessage({
         command: 'clearTerminal'
@@ -237,6 +192,7 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  // MANTENER getHtml EXACTAMENTE IGUAL - sin cambios en la estética
   private getHtml(timelineContent: string): string {
     const xtermCssUri = 'https://cdn.jsdelivr.net/npm/xterm/css/xterm.css';
     const xtermJsUri = 'https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js';
@@ -318,13 +274,11 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
           .xterm-char {
             text-align: left !important;
           }
-          /* Forzar alineación izquierda en todos los elementos del terminal */
           #terminal > div {
             text-align: left !important;
             padding-left: 0 !important;
             margin-left: 0 !important;
           }
-          /* Estilos adicionales para el prompt */
           .terminal-wrapper {
             width: 100%;
             height: 100%;
@@ -351,9 +305,7 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
             rows: 30,
             theme: {
               background: '#1e1e1e',
-              foreground: '#ffffff',
-              cursor: '#ffffff',
-              selection: '#264f78'
+              foreground: '#ffffff'
             },
             allowTransparency: false,
             convertEol: true
@@ -395,53 +347,68 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
           
           term.focus();
           
-          term.write('\\r\\nBienvenido a la Terminal TDD\\r\\n');
-          term.write('$ ');
+          // NO escribir mensaje de bienvenida aquí - lo hará el backend
+          // term.write('\\r\\nBienvenido a la Terminal TDD\\r\\n');
+          // term.write('$ ');
 
           let command = '';
-          const prompt = () => term.write('\\r\\n$ ');
+          let isExecuting = false;
 
           term.onData(data => {
             const code = data.charCodeAt(0);
             if (code === 13) {
-              if (command.trim()) {
+              if (command.trim() && !isExecuting) {
+                isExecuting = true;
                 vscode.postMessage({
                   command: 'executeCommand',
                   text: command
                 });
+                command = '';
+              } else if (!isExecuting) {
+                term.write('\\r\\n$ ');
               }
-              command = '';
-              prompt();
             } else if (code === 127) {
-              if (command.length > 0) {
+              if (command.length > 0 && !isExecuting) {
                 command = command.slice(0, -1);
                 term.write('\\b \\b');
               }
-            } else if (code >= 32 && code <= 126) {
+            } else if (code === 3) {
+              if (isExecuting) {
+                term.write('^C');
+                vscode.postMessage({
+                  command: 'killCommand'
+                });
+                isExecuting = false;
+                term.write('\\r\\n$ ');
+              }
+            } else if (code >= 32 && code <= 126 && !isExecuting) {
               command += data;
               term.write(data);
             }
           });
-
+          
           window.addEventListener('message', event => {
-          const message = event.data;
-          if (message.command === 'updateTimeline') {
-            document.getElementById('timeline-content').innerHTML = message.html;
-          }
-          if (message.command === 'writeToTerminal') {
-            const text = message.text || '';
-            // Escribir el texto directamente - xterm.js maneja los códigos ANSI
-            term.write(text);
-          }
-          if (message.command === 'executeCommand') {
-            term.write('\\r\\n$ ' + message.text + '\\r\\n');
-          }
-          if (message.command === 'clearTerminal') {
-            term.clear();
-            term.write('$ ');
-          }
-        });
-      </script>
+            const message = event.data;
+            if (message.command === 'updateTimeline') {
+              document.getElementById('timeline-content').innerHTML = message.html;
+            }
+            if (message.command === 'writeToTerminal') {
+              const text = message.text || '';
+              term.write(text);
+              if (message.text === '$ ') {
+                isExecuting = false;
+              }
+            }
+            if (message.command === 'executeCommand') {
+              term.write('\\r\\n$ ' + message.text + '\\r\\n');
+            }
+            if (message.command === 'clearTerminal') {
+              term.clear();
+              term.write('$ ');
+              isExecuting = false;
+            }
+          });
+        </script>
       </body>
       </html>
     `;

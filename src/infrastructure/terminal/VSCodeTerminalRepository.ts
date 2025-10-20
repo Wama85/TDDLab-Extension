@@ -1,113 +1,115 @@
 import * as vscode from 'vscode';
 import { TerminalPort } from '../../domain/model/TerminalPort';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { spawn } from 'child_process';
 
 export class VSCodeTerminalRepository implements TerminalPort {
-  private readonly outputChannel: vscode.OutputChannel;
+  private outputChannel: vscode.OutputChannel;
+  private currentProcess: any = null;
+  private onOutputCallback: ((output: string) => void) | null = null;
 
   constructor() {
     this.outputChannel = vscode.window.createOutputChannel('TDDLab Commands');
   }
 
-  private getTerminalByName(name: string): vscode.Terminal | undefined {
-    return vscode.window.terminals.find(terminal => terminal.name === name);
+  setOnOutputCallback(callback: (output: string) => void): void {
+    this.onOutputCallback = callback;
   }
 
-  async createAndExecuteCommand(terminalName: string, command: string): Promise<{output: string, error: string}> {
-    try {
-      this.outputChannel.appendLine(`[${new Date().toISOString()}] Executing: ${command}`);
-      
-      // Obtener el workspace actual
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      const cwd = workspaceFolder ? workspaceFolder.uri.fsPath : process.cwd();
+  async createAndExecuteCommand(terminalName: string, command: string): Promise<void> {
+    return new Promise((resolve) => {
+      try {
+        this.outputChannel.appendLine(`[${new Date().toISOString()}] Executing: ${command}`);
+        
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        const cwd = workspaceFolder ? workspaceFolder.uri.fsPath : process.cwd();
 
-      this.outputChannel.appendLine(`  Directory: ${cwd}`);
+        this.outputChannel.appendLine(`  Directory: ${cwd}`);
 
-      // Ejecutar el comando y capturar output
-      const { stdout, stderr } = await execAsync(command, { 
-        cwd: cwd,
-        encoding: 'utf8' as BufferEncoding,
-        maxBuffer: 1024 * 1024 * 10 // 10MB buffer
-      });
+        const [cmd, ...args] = this.parseCommand(command);
+        
+        this.currentProcess = spawn(cmd, args, {
+          cwd: cwd,
+          shell: true,
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
 
-      // Log del resultado
-      if (stdout) {
-        this.outputChannel.appendLine(`  Output: ${stdout.substring(0, 200)}${stdout.length > 200 ? '...' : ''}`);
+        this.currentProcess.stdout?.on('data', (data: Buffer) => {
+          const output = data.toString();
+          this.outputChannel.append(output);
+          if (this.onOutputCallback) {
+            this.onOutputCallback(output);
+          }
+        });
+
+        this.currentProcess.stderr?.on('data', (data: Buffer) => {
+          const error = data.toString();
+          this.outputChannel.append(error);
+          if (this.onOutputCallback) {
+            this.onOutputCallback(`\x1b[31m${error}\x1b[0m`);
+          }
+        });
+
+        this.currentProcess.on('close', (code: number) => {
+          this.outputChannel.appendLine(`\nCommand exited with code: ${code}`);
+          
+          if (code === 0) {
+            if (this.onOutputCallback) {
+              this.onOutputCallback(`\x1b[32m✅ Comando ejecutado correctamente (código: ${code})\x1b[0m\r\n`);
+            }
+          } else {
+            if (this.onOutputCallback) {
+              this.onOutputCallback(`\x1b[31m❌ Comando falló con código: ${code}\x1b[0m\r\n`);
+            }
+          }
+          
+          this.currentProcess = null;
+          resolve();
+        });
+
+        this.currentProcess.on('error', (error: Error) => {
+          this.outputChannel.appendLine(`Process error: ${error.message}`);
+          if (this.onOutputCallback) {
+            this.onOutputCallback(`\x1b[31m❌ Error ejecutando comando: ${error.message}\x1b[0m\r\n`);
+          }
+          this.currentProcess = null;
+          resolve();
+        });
+
+      } catch (error: any) {
+        this.outputChannel.appendLine(`  ERROR: ${error.message}`);
+        if (this.onOutputCallback) {
+          this.onOutputCallback(`\x1b[31m❌ Error: ${error.message}\x1b[0m\r\n`);
+        }
+        resolve();
       }
-      if (stderr) {
-        this.outputChannel.appendLine(`  Error: ${stderr.substring(0, 200)}${stderr.length > 200 ? '...' : ''}`);
+    });
+  }
+
+  private parseCommand(command: string): string[] {
+    const regex = /[^\s"']+|"([^"]*)"|'([^']*)'/g;
+    const matches = [];
+    let match;
+    
+    while ((match = regex.exec(command)) !== null) {
+      matches.push(match[1] || match[2] || match[0]);
+    }
+    
+    return matches.length > 0 ? matches : [command];
+  }
+
+  public killCurrentProcess(): void {
+    if (this.currentProcess) {
+      this.currentProcess.kill();
+      this.currentProcess = null;
+      this.outputChannel.appendLine('Process killed by user');
+      if (this.onOutputCallback) {
+        this.onOutputCallback('\x1b[33m🛑 Proceso cancelado por el usuario\x1b[0m\r\n');
       }
-
-      // También crear terminal de VS Code para comandos largos o interactivos
-      if (this.shouldShowInVSCodeTerminal(command)) {
-        this.createVSCodeTerminal(terminalName, command, cwd);
-      }
-
-      return { output: stdout, error: stderr };
-      
-    } catch (error: any) {
-      this.outputChannel.appendLine(`  ERROR: ${error.message}`);
-      
-      // Mostrar error en terminal de VS Code también
-      this.createVSCodeTerminal(terminalName, `echo "Error: ${error.message}"`, process.cwd());
-      
-      return { 
-        output: '', 
-        error: error.stderr || error.message || `Error ejecutando comando: ${command}` 
-      };
     }
-  }
-
-  private shouldShowInVSCodeTerminal(command: string): boolean {
-    // Comandos que deben mostrarse en terminal VS Code
-    const interactiveCommands = [
-      'npm start', 'npm run dev', 'npm run serve', 
-      'node ', 'python ', 'python3 ', 'ruby ', 'php ',
-      'docker-compose', 'kubectl ', 'ssh ', 'ng serve'
-    ];
-    
-    return interactiveCommands.some(cmd => command.includes(cmd));
-  }
-
-  private createVSCodeTerminal(terminalName: string, command: string, cwd: string): void {
-    let terminal = this.getTerminalByName(terminalName);
-
-    if (!terminal) {
-      terminal = vscode.window.createTerminal({
-        name: terminalName,
-        cwd: cwd
-      });
-    }
-
-    terminal.show();
-    
-    // Limpiar terminal si es nueva
-    if (!this.getTerminalByName(terminalName)) {
-      terminal.sendText('clear');
-    }
-    
-    terminal.sendText(command);
-    this.outputChannel.appendLine(`  Command sent to VS Code terminal: ${terminalName}`);
-  }
-
-  // Nuevo método para comandos específicos de TDD
-  public executeTestCommand(testCommand: string): Promise<{output: string, error: string}> {
-    this.outputChannel.show();
-    return this.createAndExecuteCommand('TDDLab Tests', testCommand);
-  }
-
-  public executeBuildCommand(buildCommand: string): Promise<{output: string, error: string}> {
-    return this.createAndExecuteCommand('TDDLab Build', buildCommand);
-  }
-
-  public showOutputChannel(): void {
-    this.outputChannel.show();
   }
 
   public dispose(): void {
+    this.killCurrentProcess();
     this.outputChannel.dispose();
   }
 }
