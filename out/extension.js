@@ -42,18 +42,26 @@ const TerminalViewProvider_1 = require("./presentation/terminal/TerminalViewProv
 const TimelineView_1 = require("./presentation/timeline/TimelineView");
 const TestMenuProvider_1 = require("./presentation/menu/TestMenuProvider");
 const VSCodeTerminalRepository_1 = require("./infrastructure/terminal/VSCodeTerminalRepository");
+const ExecuteCloneCommand_1 = require("./application/clone/ExecuteCloneCommand");
 let terminalProvider = null;
 let timelineView = null;
 let testMenuProvider = null;
 async function activate(context) {
     console.log('TDDLab extension is activating...');
     try {
+        // Crear TimelineView primero
         timelineView = new TimelineView_1.TimelineView(context);
+        // Crear VSCodeTerminalRepository
         const terminalPort = new VSCodeTerminalRepository_1.VSCodeTerminalRepository();
+        // Crear TerminalViewProvider con TimelineView
         terminalProvider = new TerminalViewProvider_1.TerminalViewProvider(context, timelineView, terminalPort);
+        // Crear el menú de opciones TDD
         testMenuProvider = new TestMenuProvider_1.TestMenuProvider();
+        // Crear instancias para ejecutar tests y clonar proyecto
         const runTests = new NpmRunTests_1.NpmRunTests(terminalProvider);
         const executeTestCommand = new ExecuteTestCommand_1.ExecuteTestCommand(runTests);
+        const executeCloneCommand = new ExecuteCloneCommand_1.ExecuteCloneCommand();
+        // Comando Run Test
         const runTestCmd = vscode.commands.registerCommand('TDD.runTest', async () => {
             try {
                 if (!terminalProvider) {
@@ -68,39 +76,57 @@ async function activate(context) {
                 vscode.window.showErrorMessage(msg);
             }
         });
+        // Comando Clear Terminal
         const clearTerminalCmd = vscode.commands.registerCommand('TDD.clearTerminal', () => {
             if (terminalProvider) {
                 terminalProvider.clearTerminal();
             }
         });
-        // Comando Run Cypress (si lo tienes)
+        // Comando Crear Proyecto
+        const cloneProjectCmd = vscode.commands.registerCommand('TDD.cloneCommand', async () => {
+            try {
+                await executeCloneCommand.execute();
+            }
+            catch (error) {
+                vscode.window.showErrorMessage(`Error al crear el proyecto: ${error.message}`);
+            }
+        });
+        // Comando Show Timeline (abre la Terminal TDD que contiene el timeline)
+        const showTimelineCmd = vscode.commands.registerCommand('extension.showTimeline', async () => {
+            try {
+                await vscode.commands.executeCommand('tddTerminalView.focus');
+            }
+            catch (error) {
+                vscode.window.showErrorMessage(`Error al mostrar timeline: ${error.message}`);
+            }
+        });
+        // Comando Run Cypress
         const runCypressCmd = vscode.commands.registerCommand('TDD.runCypress', () => {
             if (terminalProvider) {
                 vscode.commands.executeCommand('tddTerminalView.focus');
-                // CAMBIO: Usar executeCommand en lugar de executeRealCommand
                 terminalProvider.executeCommand('npx cypress run');
             }
         });
-        // Comando Git Status (si lo tienes)
+        // Comando Git Status
         const gitStatusCmd = vscode.commands.registerCommand('TDD.gitStatus', () => {
             if (terminalProvider) {
                 vscode.commands.executeCommand('tddTerminalView.focus');
-                // CAMBIO: Usar executeCommand en lugar de executeRealCommand
                 terminalProvider.executeCommand('git status');
             }
         });
-        // Comando NPM Install (si lo tienes)
+        // Comando NPM Install
         const npmInstallCmd = vscode.commands.registerCommand('TDD.npmInstall', () => {
             if (terminalProvider) {
                 vscode.commands.executeCommand('tddTerminalView.focus');
-                // CAMBIO: Usar executeCommand en lugar de executeRealCommand
                 terminalProvider.executeCommand('npm install');
             }
         });
-        context.subscriptions.push(runTestCmd, clearTerminalCmd, runCypressCmd, gitStatusCmd, npmInstallCmd);
+        // Registrar todos los comandos
+        context.subscriptions.push(runTestCmd, clearTerminalCmd, cloneProjectCmd, showTimelineCmd, runCypressCmd, gitStatusCmd, npmInstallCmd);
+        // Registrar el menú de opciones TDD
         context.subscriptions.push(vscode.window.registerTreeDataProvider('tddTestExecution', testMenuProvider));
+        // Registrar Terminal TDDLab (incluye el Timeline integrado)
         context.subscriptions.push(vscode.window.registerWebviewViewProvider(TerminalViewProvider_1.TerminalViewProvider.viewType, terminalProvider));
-        context.subscriptions.push(vscode.window.registerWebviewViewProvider('tddTimelineView', timelineView));
         console.log('TDDLab extension activated ✅');
     }
     catch (error) {
