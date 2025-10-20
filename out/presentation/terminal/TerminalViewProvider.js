@@ -136,6 +136,10 @@ class TerminalViewProvider {
             this.context.globalState.update(this.BUFFER_STORAGE_KEY, this.terminalBuffer);
         }
         if (this.webviewView) {
+<<<<<<< HEAD
+=======
+            const text = message.endsWith('\r\n') ? message.slice(0, -2) : message;
+>>>>>>> master
             this.webviewView.webview.postMessage({
                 command: 'writeToTerminal',
                 text: message
