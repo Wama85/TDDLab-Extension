@@ -26,23 +26,19 @@ export async function activate(context: vscode.ExtensionContext) {
     const executeTestCommand = new ExecuteTestCommand(runTests);
 
     const runTestCmd = vscode.commands.registerCommand('TDD.runTest', async () => {
-      try {
-        if (!terminalProvider) {
-          vscode.window.showErrorMessage('Terminal no disponible');
-          return;
-        }
-
-        await vscode.commands.executeCommand('tddTerminalView.focus');
-        
-        // CAMBIO: Usar executeCommand en lugar de executeRealCommand
-        terminalProvider.executeCommand('npm test');
-        
-      } catch (error: any) {
-        const msg = `❌ Error ejecutando tests: ${error.message}`;
-        if (terminalProvider) {
-          terminalProvider.sendToTerminal(`\x1b[31m${msg}\x1b[0m\r\n`);
-        }
+    try {
+      if (!terminalProvider) {
+        vscode.window.showErrorMessage('Terminal no disponible');
+        return;
       }
+
+      await vscode.commands.executeCommand('tddTerminalView.focus');
+      terminalProvider.executeCommand('npm test');
+      
+    } catch (error: any) {
+      const msg = `❌ Error ejecutando tests: ${error.message}`;
+      vscode.window.showErrorMessage(msg);
+    }
     });
 
     const clearTerminalCmd = vscode.commands.registerCommand('TDD.clearTerminal', () => {

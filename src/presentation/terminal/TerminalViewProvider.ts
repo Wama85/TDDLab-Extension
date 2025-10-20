@@ -8,22 +8,29 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
   private webviewView?: vscode.WebviewView;
   private readonly timelineView: TimelineView;
   private readonly terminalPort: TerminalPort;
-  private isExecuting: boolean = false;
   private terminalBuffer: string = '';
+
+  private readonly BUFFER_STORAGE_KEY = 'tddTerminalBuffer';
 
   constructor(context: vscode.ExtensionContext, timelineView: TimelineView, terminalPort: TerminalPort) {
     this.context = context;
     this.timelineView = timelineView;
     this.terminalPort = terminalPort;
 
+    // Cargar buffer persistido
+    this.terminalBuffer = context.globalState.get(this.BUFFER_STORAGE_KEY, '');
+
     // Configurar callback directo para el output
     this.terminalPort.setOnOutputCallback((output: string) => {
       this.sendToTerminal(output);
     });
 
-    TimelineView.onTimelineUpdated(async () => {
-      await this.updateTimelineInWebview();
-    });
+    // Timeline updates si existe
+    if (typeof (TimelineView as any).onTimelineUpdated === 'function') {
+      (TimelineView as any).onTimelineUpdated(async () => {
+        await this.updateTimelineInWebview();
+      });
+    }
   }
 
   async resolveWebviewView(
@@ -47,11 +54,10 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
       await this.handleWebviewMessage(message);
     });
 
-    // Restaurar el buffer si existe
-    if (this.terminalBuffer) {
-      this.sendToTerminal(this.terminalBuffer);
+    // Restaurar el buffer persistido o mostrar mensaje inicial
+    if (this.terminalBuffer && this.terminalBuffer.trim() !== '') {
+      this.sendToTerminal(this.terminalBuffer, true);
     } else {
-      // Mensaje inicial solo si no hay buffer
       this.sendToTerminal('\r\nBienvenido a la Terminal TDD\r\n$ ');
     }
 
@@ -78,11 +84,6 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async executeRealCommand(command: string): Promise<void> {
-    if (this.isExecuting) {
-      this.sendToTerminal('\r\n\x1b[33m⚠️  Ya hay un comando en ejecución. Espera a que termine.\x1b[0m\r\n$ ');
-      return;
-    }
-
     if (!command.trim()) {
       this.sendToTerminal('$ ');
       return;
@@ -90,6 +91,7 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
 
     const trimmedCommand = command.trim();
     
+    // Comandos locales
     if (trimmedCommand === 'clear') {
       this.clearTerminal();
       return;
@@ -100,25 +102,17 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    this.isExecuting = true;
-
     this.sendToTerminal(`\r\n$ ${trimmedCommand}\r\n`);
 
     try {
       await this.terminalPort.createAndExecuteCommand('TDDLab Terminal', trimmedCommand);
     } catch (error: any) {
-      this.sendToTerminal(`\x1b[31m❌ Error ejecutando comando: ${error.message}\x1b[0m\r\n`);
-    } finally {
-      this.isExecuting = false;
-      this.sendToTerminal('\r\n$ ');
+      this.sendToTerminal(`❌ Error ejecutando comando: ${error.message}\r\n$ `);
     }
   }
 
   private killCurrentCommand(): void {
-    if (this.isExecuting && this.terminalPort.killCurrentProcess) {
-      this.terminalPort.killCurrentProcess();
-      this.isExecuting = false;
-    }
+    this.terminalPort.killCurrentProcess();
   }
 
   private showHelp(): void {
@@ -143,7 +137,7 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
 │    pwd       - Directorio actual                  │\r
 │                                                   │\r
 └───────────────────────────────────────────────────┘\r
-\r\n`;
+\r\n$ `;
 
     this.sendToTerminal(helpText);
   }
@@ -162,9 +156,11 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  public sendToTerminal(message: string) {
-    // Guardar en buffer para persistencia
-    this.terminalBuffer += message;
+  public sendToTerminal(message: string, isRestoring: boolean = false) {
+    if (!isRestoring) {
+      this.terminalBuffer += message;
+      this.context.globalState.update(this.BUFFER_STORAGE_KEY, this.terminalBuffer);
+    }
     
     if (this.webviewView) {
       this.webviewView.webview.postMessage({
@@ -185,6 +181,8 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
 
   public clearTerminal() {
     this.terminalBuffer = '$ ';
+    this.context.globalState.update(this.BUFFER_STORAGE_KEY, this.terminalBuffer);
+    
     if (this.webviewView) {
       this.webviewView.webview.postMessage({
         command: 'clearTerminal'
@@ -192,7 +190,7 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  // MANTENER getHtml EXACTAMENTE IGUAL - sin cambios en la estética
+  // MANTENER getHtml EXACTAMENTE IGUAL
   private getHtml(timelineContent: string): string {
     const xtermCssUri = 'https://cdn.jsdelivr.net/npm/xterm/css/xterm.css';
     const xtermJsUri = 'https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js';
@@ -347,10 +345,6 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
           
           term.focus();
           
-          // NO escribir mensaje de bienvenida aquí - lo hará el backend
-          // term.write('\\r\\nBienvenido a la Terminal TDD\\r\\n');
-          // term.write('$ ');
-
           let command = '';
           let isExecuting = false;
 
@@ -373,14 +367,13 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
                 term.write('\\b \\b');
               }
             } else if (code === 3) {
-              if (isExecuting) {
-                term.write('^C');
-                vscode.postMessage({
-                  command: 'killCommand'
-                });
-                isExecuting = false;
-                term.write('\\r\\n$ ');
-              }
+              // Ctrl+C - siempre funciona
+              term.write('^C');
+              vscode.postMessage({
+                command: 'killCommand'
+              });
+              isExecuting = false;
+              term.write('\\r\\n$ ');
             } else if (code >= 32 && code <= 126 && !isExecuting) {
               command += data;
               term.write(data);
@@ -395,17 +388,19 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
             if (message.command === 'writeToTerminal') {
               const text = message.text || '';
               term.write(text);
-              if (message.text === '$ ') {
+              if (message.text === '$ ' || message.text.endsWith('\\r\\n$ ')) {
                 isExecuting = false;
               }
             }
             if (message.command === 'executeCommand') {
               term.write('\\r\\n$ ' + message.text + '\\r\\n');
+              isExecuting = true;
             }
             if (message.command === 'clearTerminal') {
               term.clear();
               term.write('$ ');
               isExecuting = false;
+              command = '';
             }
           });
         </script>

@@ -61,14 +61,11 @@ async function activate(context) {
                     return;
                 }
                 await vscode.commands.executeCommand('tddTerminalView.focus');
-                // CAMBIO: Usar executeCommand en lugar de executeRealCommand
                 terminalProvider.executeCommand('npm test');
             }
             catch (error) {
                 const msg = `❌ Error ejecutando tests: ${error.message}`;
-                if (terminalProvider) {
-                    terminalProvider.sendToTerminal(`\x1b[31m${msg}\x1b[0m\r\n`);
-                }
+                vscode.window.showErrorMessage(msg);
             }
         });
         const clearTerminalCmd = vscode.commands.registerCommand('TDD.clearTerminal', () => {
