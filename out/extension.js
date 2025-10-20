@@ -96,13 +96,21 @@ async function activate(context) {
             vscode.window.showErrorMessage(`Error al crear el proyecto: ${error.message}`);
         }
     });
-    context.subscriptions.push(runTestCmd, clearTerminalCmd, cloneProjectCmd);
+    //  Comando Show Timeline (abre la Terminal TDD que contiene el timeline)
+    const showTimelineCmd = vscode.commands.registerCommand('extension.showTimeline', async () => {
+        try {
+            // Abrir la vista de la Terminal TDD donde está el Timeline
+            await vscode.commands.executeCommand('tddTerminalView.focus');
+        }
+        catch (error) {
+            vscode.window.showErrorMessage(`Error al mostrar timeline: ${error.message}`);
+        }
+    });
+    context.subscriptions.push(runTestCmd, clearTerminalCmd, cloneProjectCmd, showTimelineCmd);
     //  Registrar el menú de opciones TDD
     context.subscriptions.push(vscode.window.registerTreeDataProvider('tddTestExecution', testMenuProvider));
-    //  Registrar Terminal TDDLab
+    //  Registrar Terminal TDDLab (incluye el Timeline integrado)
     context.subscriptions.push(vscode.window.registerWebviewViewProvider(TerminalViewProvider_1.TerminalViewProvider.viewType, terminalProvider));
-    // Registrar TimelineView (si quieres que también esté disponible como vista separada)
-    context.subscriptions.push(vscode.window.registerWebviewViewProvider('tddTimelineView', timelineView));
 }
 function deactivate() {
     terminalProvider = null;
