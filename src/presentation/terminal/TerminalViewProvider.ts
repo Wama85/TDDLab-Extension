@@ -54,7 +54,7 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
       await this.handleWebviewMessage(message);
     });
 
-    // Solo restaurar si hay contenido guardado, si no, mensaje inicial
+    // Restaurar el contenido de la terminal
     if (this.terminalBuffer && this.terminalBuffer.trim() !== '' && this.terminalBuffer !== '$ ') {
       // Enviar el buffer completo de una vez
       this.webviewView?.webview.postMessage({
@@ -65,6 +65,11 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
       // Primera vez: mensaje de bienvenida
       this.sendToTerminal('\r\nBienvenido a la Terminal TDD\r\n$ ');
     }
+
+    // Actualizar el timeline después de restaurar la terminal
+    setTimeout(async () => {
+      await this.updateTimelineInWebview();
+    }, 500);
 
     console.log('[TerminalViewProvider] Webview inicializada ✅');
   }

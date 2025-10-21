@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
+const path = __importStar(require("path"));
 const ExecuteTestCommand_1 = require("./application/runTest/ExecuteTestCommand");
 const NpmRunTests_1 = require("./infrastructure/test/NpmRunTests");
 const TerminalViewProvider_1 = require("./presentation/terminal/TerminalViewProvider");
@@ -61,6 +62,65 @@ async function activate(context) {
         const runTests = new NpmRunTests_1.NpmRunTests(terminalProvider);
         const executeTestCommand = new ExecuteTestCommand_1.ExecuteTestCommand(runTests);
         const executeCloneCommand = new ExecuteCloneCommand_1.ExecuteCloneCommand();
+        // Verificar si hay una instalación pendiente
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (workspaceFolder) {
+            const markerFile = path.join(workspaceFolder, '.tddlab-setup-pending');
+            try {
+                const fs = await import('fs/promises');
+                const markerExists = await fs.access(markerFile).then(() => true).catch(() => false);
+                if (markerExists) {
+                    // Esperar un poco para que la ventana se cargue completamente
+                    setTimeout(async () => {
+                        await vscode.window.withProgress({
+                            location: vscode.ProgressLocation.Notification,
+                            title: "Configurando proyecto TDDLab...",
+                            cancellable: false
+                        }, async (progress) => {
+                            try {
+                                // Abrir la terminal TDD
+                                await vscode.commands.executeCommand('tddTerminalView.focus');
+                                // Ejecutar npm install
+                                progress.report({ increment: 0, message: "Instalando dependencias..." });
+                                if (terminalProvider) {
+                                    terminalProvider.sendToTerminal('\r\n🔧 Configuración automática iniciada...\r\n');
+                                    terminalProvider.sendToTerminal('$ npm install\r\n');
+                                    await terminalPort.createAndExecuteCommand('TDDLab Setup', 'npm install');
+                                }
+                                // Ejecutar git init
+                                progress.report({ increment: 50, message: "Inicializando Git..." });
+                                if (terminalProvider) {
+                                    terminalProvider.sendToTerminal('\r\n$ git init\r\n');
+                                    await terminalPort.createAndExecuteCommand('TDDLab Setup', 'git init');
+                                    terminalProvider.sendToTerminal('\r\n$ git add .\r\n');
+                                    await terminalPort.createAndExecuteCommand('TDDLab Setup', 'git add .');
+                                    terminalProvider.sendToTerminal('\r\n$ git commit -m "Initial commit"\r\n');
+                                    await terminalPort.createAndExecuteCommand('TDDLab Setup', 'git commit -m "Initial commit"');
+                                }
+                                // Eliminar el archivo marcador
+                                await fs.unlink(markerFile);
+                                progress.report({ increment: 100, message: "¡Completado!" });
+                                if (terminalProvider) {
+                                    terminalProvider.sendToTerminal('\r\n✅ Proyecto configurado correctamente\r\n');
+                                    terminalProvider.sendToTerminal('Puedes ejecutar: npm test\r\n$ ');
+                                }
+                                vscode.window.showInformationMessage('✅ Proyecto TDDLab configurado correctamente');
+                            }
+                            catch (error) {
+                                console.error('Error en setup automático:', error);
+                                vscode.window.showErrorMessage(`Error en configuración automática: ${error.message}`);
+                                if (terminalProvider) {
+                                    terminalProvider.sendToTerminal(`\r\n❌ Error: ${error.message}\r\n$ `);
+                                }
+                            }
+                        });
+                    }, 2000); // Esperar 2 segundos
+                }
+            }
+            catch (error) {
+                // Archivo marcador no existe, continuar normalmente
+            }
+        }
         // Comando Run Test
         const runTestCmd = vscode.commands.registerCommand('TDD.runTest', async () => {
             try {
@@ -69,7 +129,7 @@ async function activate(context) {
                     return;
                 }
                 await vscode.commands.executeCommand('tddTerminalView.focus');
-                terminalProvider.executeCommand('npm run test');
+                terminalProvider.executeCommand('npm test');
             }
             catch (error) {
                 const msg = `❌ Error ejecutando tests: ${error.message}`;

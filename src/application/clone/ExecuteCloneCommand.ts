@@ -85,6 +85,14 @@ export class ExecuteCloneCommand {
           // Eliminar carpeta temporal
           await fs.rm(tempFolder, { recursive: true, force: true });
 
+          // Crear archivo marcador para instalación automática
+          const markerFile = path.join(selectedPath, '.tddlab-setup-pending');
+          await fs.writeFile(markerFile, JSON.stringify({
+            createdAt: new Date().toISOString(),
+            needsInstall: true,
+            needsGitInit: true
+          }));
+
           progress.report({ increment: 100, message: "¡Completado!" });
         } catch (error: any) {
           throw new Error(`Error al clonar: ${error.message}`);

@@ -99,6 +99,13 @@ class ExecuteCloneCommand {
                     progress.report({ increment: 80, message: "Limpiando archivos temporales..." });
                     // Eliminar carpeta temporal
                     await fs.rm(tempFolder, { recursive: true, force: true });
+                    // Crear archivo marcador para instalación automática
+                    const markerFile = path.join(selectedPath, '.tddlab-setup-pending');
+                    await fs.writeFile(markerFile, JSON.stringify({
+                        createdAt: new Date().toISOString(),
+                        needsInstall: true,
+                        needsGitInit: true
+                    }));
                     progress.report({ increment: 100, message: "¡Completado!" });
                 }
                 catch (error) {
