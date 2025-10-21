@@ -4,17 +4,23 @@ export class TestMenuItem extends vscode.TreeItem {
   constructor(
     public readonly label: string,
     public readonly command?: vscode.Command,
-    public readonly collapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.None
+    public readonly collapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.None,
+    public readonly iconPath?: { light: vscode.Uri; dark: vscode.Uri } | vscode.ThemeIcon
   ) {
     super(label, collapsibleState);
     this.command = command;
+    if (iconPath) {
+      this.iconPath = iconPath;
+    }
   }
 }
 
 export class TestMenuProvider implements vscode.TreeDataProvider<TestMenuItem> {
-  private _onDidChangeTreeData: vscode.EventEmitter<TestMenuItem | undefined | null | void> = new vscode.EventEmitter<TestMenuItem | undefined | null | void>();
-  readonly onDidChangeTreeData: vscode.Event<TestMenuItem | undefined | null | void> = this._onDidChangeTreeData.event;
-
+  private _onDidChangeTreeData: vscode.EventEmitter<TestMenuItem | undefined | null> =
+    new vscode.EventEmitter<TestMenuItem | undefined | null>();
+  readonly onDidChangeTreeData: vscode.Event<TestMenuItem | undefined | null> =
+    
+  this._onDidChangeTreeData.event;
   refresh(): void {
     this._onDidChangeTreeData.fire(undefined);
   }
@@ -46,6 +52,14 @@ export class TestMenuProvider implements vscode.TreeDataProvider<TestMenuItem> {
           command: 'TDD.cloneCommand',
           title: 'Crear Proyecto TDDLab'
         }
+      ),
+      new TestMenuItem(
+        '💬 TDD Assistant Chat',
+        {
+          command: 'TDD.openChat',
+          title: 'Abrir Chat del Asistente TDD'
+        },
+        vscode.TreeItemCollapsibleState.None
       ),
       new TestMenuItem(
         '🧹 Clear Terminal',

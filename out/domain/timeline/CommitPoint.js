@@ -2,9 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CommitPoint = void 0;
 class CommitPoint {
-    commitId;
-    commitName;
-    commitTimestamp;
     constructor(commitId, commitName, commitTimestamp) {
         this.commitId = commitId;
         this.commitName = commitName;

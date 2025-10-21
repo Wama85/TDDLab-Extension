@@ -36,8 +36,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GetLastPoint = void 0;
 const vscode = __importStar(require("vscode"));
 class GetLastPoint {
-    context;
-    statusBarItem;
     constructor(context) {
         this.context = context;
         this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 9999);

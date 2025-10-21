@@ -3,6 +3,7 @@ import { GetTimeline } from '../../application/timeline/GetTimeline';
 import { GetLastPoint } from '../../application/timeline/GetLastPoint';
 import { Timeline } from '../../domain/timeline/Timeline';
 import { CommitPoint } from '../../domain/timeline/CommitPoint';
+import * as path from 'path';
 
 export class TimelineView implements vscode.WebviewViewProvider {
   private readonly context: vscode.ExtensionContext;
@@ -104,7 +105,7 @@ export class TimelineView implements vscode.WebviewViewProvider {
     webview: vscode.Webview
   ): string {
     const gitLogoUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, 'images', 'git.png')
+    vscode.Uri.file(path.join(this.context.extensionUri.fsPath, 'images', 'git.png'))
     );
     const regex = /refactor/i;
 

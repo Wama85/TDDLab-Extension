@@ -39,7 +39,6 @@ const path = __importStar(require("path"));
 const Timeline_1 = require("../../../domain/timeline/Timeline");
 const CommitPoint_1 = require("../../../domain/timeline/CommitPoint");
 class TimelineRepository {
-    filePath;
     constructor(extensionPath) {
         this.filePath = path.join(extensionPath, 'script', 'tdd_log.json');
     }

@@ -37,11 +37,10 @@ exports.VSCodeTerminalRepository = void 0;
 const vscode = __importStar(require("vscode"));
 const child_process_1 = require("child_process");
 class VSCodeTerminalRepository {
-    outputChannel;
-    currentProcess = null;
-    onOutputCallback = null;
-    isExecuting = false;
     constructor() {
+        this.currentProcess = null;
+        this.onOutputCallback = null;
+        this.isExecuting = false;
         this.outputChannel = vscode.window.createOutputChannel('TDDLab Commands');
     }
     setOnOutputCallback(callback) {

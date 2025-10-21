@@ -36,21 +36,24 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TestMenuProvider = exports.TestMenuItem = void 0;
 const vscode = __importStar(require("vscode"));
 class TestMenuItem extends vscode.TreeItem {
-    label;
-    command;
-    collapsibleState;
-    constructor(label, command, collapsibleState = vscode.TreeItemCollapsibleState.None) {
+    constructor(label, command, collapsibleState = vscode.TreeItemCollapsibleState.None, iconPath) {
         super(label, collapsibleState);
         this.label = label;
         this.command = command;
         this.collapsibleState = collapsibleState;
+        this.iconPath = iconPath;
         this.command = command;
+        if (iconPath) {
+            this.iconPath = iconPath;
+        }
     }
 }
 exports.TestMenuItem = TestMenuItem;
 class TestMenuProvider {
-    _onDidChangeTreeData = new vscode.EventEmitter();
-    onDidChangeTreeData = this._onDidChangeTreeData.event;
+    constructor() {
+        this._onDidChangeTreeData = new vscode.EventEmitter();
+        this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+    }
     refresh() {
         this._onDidChangeTreeData.fire(undefined);
     }
@@ -75,6 +78,10 @@ class TestMenuProvider {
                 command: 'TDD.cloneCommand',
                 title: 'Crear Proyecto TDDLab'
             }),
+            new TestMenuItem('💬 TDD Assistant Chat', {
+                command: 'TDD.openChat',
+                title: 'Abrir Chat del Asistente TDD'
+            }, vscode.TreeItemCollapsibleState.None),
             new TestMenuItem('🧹 Clear Terminal', {
                 command: 'TDD.clearTerminal',
                 title: 'Clear Terminal'

@@ -39,15 +39,11 @@ const GetTimeline_1 = require("../../application/timeline/GetTimeline");
 const GetLastPoint_1 = require("../../application/timeline/GetLastPoint");
 const Timeline_1 = require("../../domain/timeline/Timeline");
 const CommitPoint_1 = require("../../domain/timeline/CommitPoint");
+const path = __importStar(require("path"));
 class TimelineView {
-    context;
-    currentWebview = null;
-    getTimeline;
-    getLastPoint;
-    static _onTimelineUpdated = new vscode.EventEmitter();
-    static onTimelineUpdated = TimelineView._onTimelineUpdated.event;
-    lastTimelineData = [];
     constructor(context) {
+        this.currentWebview = null;
+        this.lastTimelineData = [];
         this.context = context;
         const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
         this.getTimeline = new GetTimeline_1.GetTimeline(rootPath);
@@ -115,7 +111,7 @@ class TimelineView {
         TimelineView._onTimelineUpdated.fire(timeline);
     }
     generateHtmlFragment(timeline, webview) {
-        const gitLogoUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'images', 'git.png'));
+        const gitLogoUri = webview.asWebviewUri(vscode.Uri.file(path.join(this.context.extensionUri.fsPath, 'images', 'git.png')));
         const regex = /refactor/i;
         return timeline
             .slice()
@@ -176,4 +172,6 @@ class TimelineView {
     }
 }
 exports.TimelineView = TimelineView;
+TimelineView._onTimelineUpdated = new vscode.EventEmitter();
+TimelineView.onTimelineUpdated = TimelineView._onTimelineUpdated.event;
 //# sourceMappingURL=TimelineView.js.map

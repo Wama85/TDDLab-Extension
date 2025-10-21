@@ -41,8 +41,10 @@ const child_process_1 = require("child_process");
 const util_1 = require("util");
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
 class ExecuteCloneCommand {
-    // URL del repositorio base TDDLab
-    REPO_URL = 'https://github.com/israelantezana/parcel-jest-base.git';
+    constructor() {
+        // URL del repositorio base TDDLab
+        this.REPO_URL = 'https://github.com/israelantezana/parcel-jest-base.git';
+    }
     async execute() {
         try {
             // Verificar si Git está instalado

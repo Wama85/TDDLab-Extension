@@ -39,7 +39,6 @@ const child_process_1 = require("child_process");
 const util_1 = require("util");
 const execPromise = (0, util_1.promisify)(child_process_1.exec);
 class NpmRunTests {
-    terminalProvider;
     constructor(terminalProvider) {
         this.terminalProvider = terminalProvider;
     }

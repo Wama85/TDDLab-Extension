@@ -3,14 +3,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TerminalViewProvider = void 0;
 const TimelineView_1 = require("../timeline/TimelineView");
 class TerminalViewProvider {
-    static viewType = 'tddTerminalView';
-    context;
-    webviewView;
-    timelineView;
-    terminalPort;
-    terminalBuffer = '';
-    BUFFER_STORAGE_KEY = 'tddTerminalBuffer';
     constructor(context, timelineView, terminalPort) {
+        this.terminalBuffer = '';
+        this.BUFFER_STORAGE_KEY = 'tddTerminalBuffer';
         this.context = context;
         this.timelineView = timelineView;
         this.terminalPort = terminalPort;
@@ -378,4 +373,5 @@ class TerminalViewProvider {
     }
 }
 exports.TerminalViewProvider = TerminalViewProvider;
+TerminalViewProvider.viewType = 'tddTerminalView';
 //# sourceMappingURL=TerminalViewProvider.js.map

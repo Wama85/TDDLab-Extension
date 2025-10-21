@@ -2,10 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Timeline = void 0;
 class Timeline {
-    numPassedTests;
-    numTotalTests;
-    timestamp;
-    success;
     constructor(numPassedTests, numTotalTests, timestamp, success) {
         this.numPassedTests = numPassedTests;
         this.numTotalTests = numTotalTests;

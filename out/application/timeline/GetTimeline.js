@@ -3,9 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GetTimeline = void 0;
 const TimelineRepository_1 = require("../../application/timeline/repository/TimelineRepository");
 class GetTimeline {
-    timelineRepository;
-    hasShownError = false;
     constructor(rootPath) {
+        this.hasShownError = false;
         this.timelineRepository = new TimelineRepository_1.TimelineRepository(rootPath);
     }
     async execute() {
