@@ -3,9 +3,9 @@
   "displayName": "TDD Lab",
   "description": "Plugin de VSCode para la aplicación TDDLab",
   "publisher": "TDDLab-TallerDesarrollo",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "engines": {
-    "vscode": "^1.100.0"
+    "vscode": "^1.105.1"
   },
   "categories": [
     "Other"
