@@ -42,7 +42,7 @@ const util_1 = require("util");
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
 class ExecuteCloneCommand {
     // URL del repositorio base TDDLab
-    REPO_URL = 'https://github.com/israelantezana/parcel-jest-base.git';
+    REPO_URL = 'https://github.com/UCB-TallerDeDesarrollo/TDDLabBaseProject.git';
     async execute() {
         try {
             // Verificar si Git está instalado
@@ -105,7 +105,7 @@ class ExecuteCloneCommand {
                     throw new Error(`Error al clonar: ${error.message}`);
                 }
             });
-            // Abrir el proyecto en una nueva ventana de VS Code
+            // Abrir el proyecto en una nueva ventana de VS Code inmediatamente
             const selectedPathUri = vscode.Uri.file(selectedPath);
             await vscode.commands.executeCommand('vscode.openFolder', selectedPathUri, true);
         }

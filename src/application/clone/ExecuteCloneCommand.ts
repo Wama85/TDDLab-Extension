@@ -8,7 +8,7 @@ const execAsync = promisify(exec);
 
 export class ExecuteCloneCommand {
   // URL del repositorio base TDDLab
-  private readonly REPO_URL = 'https://github.com/israelantezana/parcel-jest-base.git';
+  private readonly REPO_URL = 'https://github.com/UCB-TallerDeDesarrollo/TDDLabBaseProject.git';
 
   async execute(): Promise<void> {
     try {
@@ -91,7 +91,7 @@ export class ExecuteCloneCommand {
         }
       });
 
-      // Abrir el proyecto en una nueva ventana de VS Code
+      // Abrir el proyecto en una nueva ventana de VS Code inmediatamente
       const selectedPathUri = vscode.Uri.file(selectedPath);
       await vscode.commands.executeCommand('vscode.openFolder', selectedPathUri, true);
 

@@ -41,11 +41,16 @@ class TerminalViewProvider {
         webviewView.webview.onDidReceiveMessage(async (message) => {
             await this.handleWebviewMessage(message);
         });
-        // Restaurar el buffer persistido o mostrar mensaje inicial
-        if (this.terminalBuffer && this.terminalBuffer.trim() !== '') {
-            this.sendToTerminal(this.terminalBuffer, true);
+        // Solo restaurar si hay contenido guardado, si no, mensaje inicial
+        if (this.terminalBuffer && this.terminalBuffer.trim() !== '' && this.terminalBuffer !== '$ ') {
+            // Enviar el buffer completo de una vez
+            this.webviewView?.webview.postMessage({
+                command: 'writeToTerminal',
+                text: this.terminalBuffer
+            });
         }
         else {
+            // Primera vez: mensaje de bienvenida
             this.sendToTerminal('\r\nBienvenido a la Terminal TDD\r\n$ ');
         }
         console.log('[TerminalViewProvider] Webview inicializada ✅');
@@ -142,13 +147,9 @@ class TerminalViewProvider {
             });
         }
     }
-    executeCommand(command) {
-        if (this.webviewView) {
-            this.webviewView.webview.postMessage({
-                command: 'executeCommand',
-                text: command
-            });
-        }
+    // ✅ MÉTODO CORREGIDO - Ahora ejecuta el comando realmente
+    async executeCommand(command) {
+        await this.executeRealCommand(command);
     }
     clearTerminal() {
         this.terminalBuffer = '$ ';
