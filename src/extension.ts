@@ -41,7 +41,7 @@ export async function activate(context: vscode.ExtensionContext) {
         }
 
         await vscode.commands.executeCommand('tddTerminalView.focus');
-        terminalProvider.executeCommand('npm test');
+        terminalProvider.executeCommand('npm run test');
         
       } catch (error: any) {
         const msg = `❌ Error ejecutando tests: ${error.message}`;
