@@ -34,28 +34,28 @@ export class TestMenuProvider implements vscode.TreeDataProvider<TestMenuItem> {
   private getMenuItems(): TestMenuItem[] {
     return [
       new TestMenuItem(
-        '▶️ Run Tests',
+        '▶ Run Tests',
         {
           command: 'TDD.runTest',
           title: 'Run Tests'
         }
       ),
       new TestMenuItem(
-        '📁 Crear Proyecto',
+        'Crear Proyecto',
         {
           command: 'TDD.cloneCommand',
           title: 'Crear Proyecto TDDLab'
         }
       ),
       new TestMenuItem(
-        '🧹 Clear Terminal',
+        ' Clear Terminal',
         {
           command: 'TDD.clearTerminal',
           title: 'Clear Terminal'
         }
       ),
       new TestMenuItem(
-        '📊 Show Timeline',
+        ' Show Timeline',
         {
           command: 'extension.showTimeline',
           title: 'Show Timeline'
