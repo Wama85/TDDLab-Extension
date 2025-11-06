@@ -133,7 +133,19 @@ describe('TimelineView - Show Timeline Tests', () => {
 
     describe('Timeline with Empty Data', () => {
         // ... (Tests de Empty Data)
-       
+        it('should handle empty timeline', async () => {
+            // Arrange
+            (timelineView as any).getTimeline.execute.mockResolvedValue([]);
+
+            const mockWebview = createMockWebview();
+
+            // Act
+            const html = await timelineView.getTimelineHtml(mockWebview);
+
+            // Assert
+            expect(html).toBeDefined();
+        });
+
         it('should handle timeline with only test results', async () => {
             // Arrange
             const mockTimeline = [
@@ -155,4 +167,37 @@ describe('TimelineView - Show Timeline Tests', () => {
         });
     });
 
+    describe('Timeline Visual Elements', () => {
+        // ... (Tests de Visual Elements)
+        it('should use 20x20 pixel dots for timeline points', async () => {
+            // Arrange
+            const mockTimeline = [new Timeline(5, 5, new Date(), true)];
+
+            (timelineView as any).getTimeline.execute.mockResolvedValue(mockTimeline);
+
+            const mockWebview = createMockWebview();
+
+            // Act
+            const html = await timelineView.getTimelineHtml(mockWebview);
+
+            // Assert
+            expect(html).toContain('width:20px');
+            expect(html).toContain('height:20px');
+        });
+
+        it('should use circular shape for timeline dots', async () => {
+            // Arrange
+            const mockTimeline = [new Timeline(5, 5, new Date(), true)];
+
+            (timelineView as any).getTimeline.execute.mockResolvedValue(mockTimeline);
+
+            const mockWebview = createMockWebview();
+
+            // Act
+            const html = await timelineView.getTimelineHtml(mockWebview);
+
+            // Assert
+            expect(html).toContain('border-radius:50%');
+        });
+    });
 });
