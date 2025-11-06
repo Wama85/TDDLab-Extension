@@ -67,19 +67,19 @@ class TestMenuProvider {
     }
     getMenuItems() {
         return [
-            new TestMenuItem('▶️ Run Tests', {
+            new TestMenuItem('▶ Run Tests', {
                 command: 'TDD.runTest',
                 title: 'Run Tests'
             }),
-            new TestMenuItem('📁 Crear Proyecto', {
+            new TestMenuItem('Crear Proyecto', {
                 command: 'TDD.cloneCommand',
                 title: 'Crear Proyecto TDDLab'
             }),
-            new TestMenuItem('🧹 Clear Terminal', {
+            new TestMenuItem(' Clear Terminal', {
                 command: 'TDD.clearTerminal',
                 title: 'Clear Terminal'
             }),
-            new TestMenuItem('📊 Show Timeline', {
+            new TestMenuItem(' Show Timeline', {
                 command: 'extension.showTimeline',
                 title: 'Show Timeline'
             })
