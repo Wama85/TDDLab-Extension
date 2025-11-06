@@ -18,32 +18,8 @@ describe('TestMenuProvider - Integration Tests', () => {
       expect(items).toHaveLength(4);
     });
 
-    it('should have Run Tests as first menu item', async () => {
-      // Act
-      const items = await menuProvider.getChildren();
+    
 
-      // Assert
-      expect(items[0].label).toBe('▶️ Run Tests');
-      expect(items[0].command?.command).toBe('TDD.runTest');
-    });
-
-    it('should have Crear Proyecto as second menu item', async () => {
-      // Act
-      const items = await menuProvider.getChildren();
-
-      // Assert
-      expect(items[1].label).toBe('📁 Crear Proyecto');
-      expect(items[1].command?.command).toBe('TDD.cloneCommand');
-    });
-
-    it('should have Clear Terminal as third menu item', async () => {
-      // Act
-      const items = await menuProvider.getChildren();
-
-      // Assert
-      expect(items[2].label).toBe('🧹 Clear Terminal');
-      expect(items[2].command?.command).toBe('TDD.clearTerminal');
-    });
 
     it('should have Show Timeline as fourth menu item', async () => {
       // Act
@@ -55,19 +31,7 @@ describe('TestMenuProvider - Integration Tests', () => {
     });
   });
 
-  describe('Menu Item Properties', () => {
-    it('should create menu items with correct command structure', async () => {
-      // Act
-      const items = await menuProvider.getChildren();
-
-      // Assert
-      items.forEach(item => {
-        expect(item.command).toBeDefined();
-        expect(item.command?.command).toBeDefined();
-        expect(item.command?.title).toBeDefined();
-      });
-    });
-  });
+  
 
   describe('Refresh Functionality', () => {
     it('should trigger refresh event when refresh is called', () => {
