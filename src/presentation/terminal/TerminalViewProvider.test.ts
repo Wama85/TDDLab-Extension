@@ -82,7 +82,7 @@ describe('TerminalViewProvider - Command Tests', () => {
     );
   });
 
-  describe(' Run Tests Command', () => {
+  describe('1️⃣ Run Tests Command', () => {
     it('should execute npm test command', async () => {
       // Act
       await terminalProvider.executeCommand('npm test');
