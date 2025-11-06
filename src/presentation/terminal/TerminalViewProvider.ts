@@ -54,12 +54,22 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
       await this.handleWebviewMessage(message);
     });
 
-    // Restaurar el buffer persistido o mostrar mensaje inicial
-    if (this.terminalBuffer && this.terminalBuffer.trim() !== '') {
-      this.sendToTerminal(this.terminalBuffer, true);
+    // Restaurar el contenido de la terminal
+    if (this.terminalBuffer && this.terminalBuffer.trim() !== '' && this.terminalBuffer !== '$ ') {
+      // Enviar el buffer completo de una vez
+      this.webviewView?.webview.postMessage({
+        command: 'writeToTerminal',
+        text: this.terminalBuffer
+      });
     } else {
+      // Primera vez: mensaje de bienvenida
       this.sendToTerminal('\r\nBienvenido a la Terminal TDD\r\n$ ');
     }
+
+    // Actualizar el timeline después de restaurar la terminal
+    setTimeout(async () => {
+      await this.updateTimelineInWebview();
+    }, 500);
 
     console.log('[TerminalViewProvider] Webview inicializada ✅');
   }
@@ -170,13 +180,9 @@ export class TerminalViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  public executeCommand(command: string) {
-    if (this.webviewView) {
-      this.webviewView.webview.postMessage({
-        command: 'executeCommand',
-        text: command
-      });
-    }
+  // ✅ MÉTODO CORREGIDO - Ahora ejecuta el comando realmente
+  public async executeCommand(command: string) {
+    await this.executeRealCommand(command);
   }
 
   public clearTerminal() {

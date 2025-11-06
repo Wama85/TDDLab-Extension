@@ -8,7 +8,7 @@ const execAsync = promisify(exec);
 
 export class ExecuteCloneCommand {
   // URL del repositorio base TDDLab
-  private readonly REPO_URL = 'https://github.com/israelantezana/parcel-jest-base.git';
+  private readonly REPO_URL = 'https://github.com/UCB-TallerDeDesarrollo/TDDLabBaseProject.git';
 
   async execute(): Promise<void> {
     try {
@@ -85,13 +85,21 @@ export class ExecuteCloneCommand {
           // Eliminar carpeta temporal
           await fs.rm(tempFolder, { recursive: true, force: true });
 
+          // Crear archivo marcador para instalación automática
+          const markerFile = path.join(selectedPath, '.tddlab-setup-pending');
+          await fs.writeFile(markerFile, JSON.stringify({
+            createdAt: new Date().toISOString(),
+            needsInstall: true,
+            needsGitInit: true
+          }));
+
           progress.report({ increment: 100, message: "¡Completado!" });
         } catch (error: any) {
           throw new Error(`Error al clonar: ${error.message}`);
         }
       });
 
-      // Abrir el proyecto en una nueva ventana de VS Code
+      // Abrir el proyecto en una nueva ventana de VS Code inmediatamente
       const selectedPathUri = vscode.Uri.file(selectedPath);
       await vscode.commands.executeCommand('vscode.openFolder', selectedPathUri, true);
 

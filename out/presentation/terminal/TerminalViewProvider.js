@@ -41,13 +41,22 @@ class TerminalViewProvider {
         webviewView.webview.onDidReceiveMessage(async (message) => {
             await this.handleWebviewMessage(message);
         });
-        // Restaurar el buffer persistido o mostrar mensaje inicial
-        if (this.terminalBuffer && this.terminalBuffer.trim() !== '') {
-            this.sendToTerminal(this.terminalBuffer, true);
+        // Restaurar el contenido de la terminal
+        if (this.terminalBuffer && this.terminalBuffer.trim() !== '' && this.terminalBuffer !== '$ ') {
+            // Enviar el buffer completo de una vez
+            this.webviewView?.webview.postMessage({
+                command: 'writeToTerminal',
+                text: this.terminalBuffer
+            });
         }
         else {
+            // Primera vez: mensaje de bienvenida
             this.sendToTerminal('\r\nBienvenido a la Terminal TDD\r\n$ ');
         }
+        // Actualizar el timeline después de restaurar la terminal
+        setTimeout(async () => {
+            await this.updateTimelineInWebview();
+        }, 500);
         console.log('[TerminalViewProvider] Webview inicializada ✅');
     }
     async handleWebviewMessage(message) {
@@ -136,23 +145,15 @@ class TerminalViewProvider {
             this.context.globalState.update(this.BUFFER_STORAGE_KEY, this.terminalBuffer);
         }
         if (this.webviewView) {
-<<<<<<< HEAD
-=======
-            const text = message.endsWith('\r\n') ? message.slice(0, -2) : message;
->>>>>>> master
             this.webviewView.webview.postMessage({
                 command: 'writeToTerminal',
                 text: message
             });
         }
     }
-    executeCommand(command) {
-        if (this.webviewView) {
-            this.webviewView.webview.postMessage({
-                command: 'executeCommand',
-                text: command
-            });
-        }
+    // ✅ MÉTODO CORREGIDO - Ahora ejecuta el comando realmente
+    async executeCommand(command) {
+        await this.executeRealCommand(command);
     }
     clearTerminal() {
         this.terminalBuffer = '$ ';

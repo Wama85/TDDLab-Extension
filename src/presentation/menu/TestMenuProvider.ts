@@ -12,11 +12,11 @@ export class TestMenuItem extends vscode.TreeItem {
 }
 
 export class TestMenuProvider implements vscode.TreeDataProvider<TestMenuItem> {
-  private _onDidChangeTreeData: vscode.EventEmitter<TestMenuItem | undefined | null> = new vscode.EventEmitter<TestMenuItem | undefined | null>();
-  readonly onDidChangeTreeData: vscode.Event<TestMenuItem | undefined | null> = this._onDidChangeTreeData.event;
+  private _onDidChangeTreeData: vscode.EventEmitter<TestMenuItem | undefined | null | void> = new vscode.EventEmitter<TestMenuItem | undefined | null | void>();
+  readonly onDidChangeTreeData: vscode.Event<TestMenuItem | undefined | null | void> = this._onDidChangeTreeData.event;
 
   refresh(): void {
-    this._onDidChangeTreeData.fire();
+    this._onDidChangeTreeData.fire(undefined);
   }
 
   getTreeItem(element: TestMenuItem): vscode.TreeItem {
